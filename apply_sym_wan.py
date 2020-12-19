@@ -190,7 +190,7 @@ def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
     Get point symmetry operations from pymatgen.
     
     Input: 
-    pg_symbol: Hermann–Mauguin notation of point group
+    pg_symbol: Hermann-Mauguin notation of point group
     verbose: Write out to the terminal or not
     rhom: Should we convert from hex to rhom?
     around_z: Convert 3-fold axis from 111 to 001
@@ -400,7 +400,7 @@ def print_reps(wf_file_names,point_grp,file_type='cube',center_in_cell=False,cht
 
     Inputs:
     wf_file_names: Names of the wannier function files
-    point_grp: Hermann–Mauguin notation of point group
+    point_grp: Hermann-Mauguin notation of point group
     file_type: Type of wannier function files, either xsf or cube
     cht_rnd: USed to round elements of reps
 
@@ -697,19 +697,21 @@ def center_wan_func(wann1,n_mesh,wrt_tot_com=False,com_tot=0.0,mod_wan=True):
 # ---------
 
 # Wannier function cube files
+
+# Triqs basis
+wf_file_names=['wannier90_00005.cube','wannier90_00003.cube','wannier90_00001.cube','wannier90_00002.cube','wannier90_00004.cube']
+
+# switch tst
 #wf_file_names=['wannier90_00001.cube','wannier90_00002.cube','wannier90_00003.cube','wannier90_00004.cube','wannier90_00005.cube']
-wf_file_names=['wannier90_00001.xsf','wannier90_00002.xsf','wannier90_00003.xsf','wannier90_00004.xsf','wannier90_00005.xsf']
- 
-#wf_file_names=['wannier90_00001.cube','wannier90_00002.cube','wannier90_00003.cube','wannier90_00004.cube','wannier90_00005.cube','wannier90_00006.cube']
+
 
 
 # Generate reps.dat
-#print_reps(wf_file_names,'-43m',file_type='cube')
+print_reps(wf_file_names,'-43m',file_type='cube')
 #print_reps(wf_file_names,'-43m',file_type='xsf')
 #print_reps(wf_file_names,'3m',file_type='xsf',cht_rnd=0.01)   
  
 
-sym_op=np.identity(3)
-shift=np.array([0,0,0])
-transform_xsf('wannier90_00001.xsf',sym_op,shift,'CEN_wannier90_00001.xsf',center_in_cell=False)
- 
+#sym_op=np.identity(3)
+#shift=np.array([0,0,0])
+#transform_xsf('wannier90_00001.xsf',sym_op,shift,'CEN_wannier90_00001.xsf',center_in_cell=False)
