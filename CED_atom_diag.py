@@ -91,7 +91,7 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
 
 #*************************************************************************************
 # Add the interaction Hamiltonian
-def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in):
+def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     '''
     Add the interaction part to the Hamiltonian
 
@@ -103,7 +103,8 @@ def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in):
     orb_names: List of orbitals
     fops: Many-body operators
     int_in: Parameters from input file
-    
+    verbose: write out U matrix
+
     Outputs:
     H: Hamiltonian with interaction term added
 
@@ -158,28 +159,50 @@ def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in):
         Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl,verbose=False,U_elem=[True,False,True])
     # Construct U matrix for d orbitals
     elif int_opt == 6:
-        print('SLATER U!!!!')
+        print('SLATER U, Wan basis!!!!')
         Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl,verbose=False)
         # Basis from wannierization is z2, xz,yz,x2-y2,xy
         # Triqs = xy,yz,z^2,xz,x^2-y^2
-        rot_def_to_w90 = np.array([[0, 0, 0, 0, 1],
+        rot_def_to_w90 = np.linalg.inv(np.array([[0, 0, 0, 0, 1],
                                    [0, 0, 1, 0, 0],
                                    [1, 0, 0, 0, 0],
                                    [0, 1, 0, 0, 0],
-                                   [0, 0, 0, 1, 0]])
-
-        uijkl=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=1, basis='spherical', T=rot_def_to_w90.T)
+                                   [0, 0, 0, 1, 0]]))
 
         
+        uijkl_tmp=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=Javg, basis='cubic')
+        uijkl=transform_U_matrix(uijkl_tmp,rot_def_to_w90)
 
-        
+    # Construct U matrix for d orbitals
+    elif int_opt == 7:
+        print('SLATER U, triqs basis!!!!')
+        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl,verbose=False)
+        # Basis from wannierization is z2, xz,yz,x2-y2,xy
+        # Triqs = xy,yz,z^2,xz,x^2-y^2
+        uijkl=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=Javg, basis='cubic')
+      
+
+
+
+    #Print U matrix
+    if verbose:
+        for ii in range(0,n_orb):
+            for jj in range(0,n_orb):
+                for kk in range(0,n_orb):
+                    for ll in range(0,n_orb):
+                        if np.real(uijkl[ii,jj,kk,ll]) > 1e-5:
+                            print("{:.0f}    {:.0f}     {:.0f}     {:.0f}    {:.5f}"\
+                                  .format(ii,jj,kk,ll,np.real(uijkl[ii,jj,kk,ll])))
+
+
+                    
     # Check the symmetry of the U matrix
     if int_in['sym']:
         check_sym_u_mat(uijkl,n_orb)         
             
     # Add the interactions
     H += h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
-
+    
     return H
 #*************************************************************************************
 
@@ -246,7 +269,7 @@ def check_sym_u_mat(uijkl,n_orb):
         Tij=rep[1]
         uijkl_t=transform_U_matrix(uijkl,Tij)
 
-        print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(uijkl-uijkl_t)))
+        print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(np.real(uijkl-uijkl_t))))
         i_rep+=1
 
     return
