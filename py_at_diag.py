@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # Get functions from my triqs scripts
 import sys
 sys.path.append('/Users/cdreyer/Dropbox/CCQ_SB_Research/NV/atom_diag/defect_atom_diag/') # Where my python files are 
-from CED_atom_diag import * # Make sure to comment run_at_diag at the bottom of CED_atom_diag
+from def_atom_diag import * 
 from op_dipole import *
 from ad_sort_print import *
 
