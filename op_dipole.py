@@ -126,14 +126,15 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
     multiref=np.trace(den_mat-np.matmul(den_mat,den_mat))
     
     if verbose:
-        print(state)
+        print("state",n_eig)
+        print("Den mat")
         print(den_mat)
-        print(" ")
+        print("Den mat ^ 2 ")
         print(np.abs(np.matmul(den_mat,den_mat)))
         print(" ")
         print(np.matmul(den_mat,den_mat)-den_mat)
         print(np.amax(den_mat-np.abs(np.matmul(den_mat,den_mat))))
-        print(np.trace(den_mat-np.matmul(den_mat,den_mat)))
+        print("Lambda_MR",np.trace(den_mat-np.matmul(den_mat,den_mat)))
         print(" ")
 
         #quit()

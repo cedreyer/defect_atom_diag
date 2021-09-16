@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/pythonA
 
 from pytriqs.operators.util.hamiltonians import *
 from pytriqs.operators.util import *
@@ -14,6 +14,15 @@ import math
 
 from ad_sort_print import *
 from op_dipole import *
+
+# For tprf HF
+from triqs_tprf.tight_binding import TBLattice
+from triqs_tprf.ParameterCollection import ParameterCollection
+from triqs_tprf.hf_solver import HartreeSolver, HartreeFockSolver
+from triqs_tprf.wannier90 import parse_hopping_from_wannier90_hr_dat
+from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
+
+
 
 # Main script to run atom_diag calculations
 # Cyrus Dreyer, Stony Brook University, Flatiorn CCQ 
@@ -91,7 +100,7 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
 
 #*************************************************************************************
 # Add the interaction Hamiltonian
-def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
+def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     '''
     Add the interaction part to the Hamiltonian
 
@@ -114,6 +123,7 @@ def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in,verbose=False
     n_orb=len(orb_names)
     H_int=Operator()
     int_opt=int_in['int_opt']
+    tij=int_in['tij']
     
     # Need to flip indicies of uijkl coming from VASP
     if int_in['flip']:
@@ -124,10 +134,11 @@ def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in,verbose=False
         print('uijkl -> uijkl')
 
 
-    #TEST: BASIS CHANGE TO "BAND"
+    # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
-
+        print('CHANGED TO BAND BASIS!')
+        
         # Construct U matrix for d orbitals
         if int_opt == 6:
             print('SLATER U!!!!')
@@ -190,7 +201,7 @@ def add_interaction(H,tij,n_sites,spin_names,orb_names,fops,int_in,verbose=False
             for jj in range(0,n_orb):
                 for kk in range(0,n_orb):
                     for ll in range(0,n_orb):
-                        if np.real(uijkl[ii,jj,kk,ll]) > 1e-5:
+                        if abs(np.real(uijkl[ii,jj,kk,ll])) > 1e-5:
                             print("{:.0f}    {:.0f}     {:.0f}     {:.0f}    {:.5f}"\
                                   .format(ii,jj,kk,ll,np.real(uijkl[ii,jj,kk,ll])))
 
@@ -304,7 +315,7 @@ def check_sym_t_mat(tij,n_orb):
 
 #*************************************************************************************
 # Add hoppings
-def add_hopping(H,spin_names,orb_names,tij,sym,diag_basis):
+def add_hopping(H,spin_names,orb_names,int_in,verbose=False):
     '''
     Add kinetic part to the Hamiltonian.
 
@@ -317,15 +328,17 @@ def add_hopping(H,spin_names,orb_names,tij,sym,diag_basis):
     Outputs:
     H: Hamiltonian with kinetic part     
     '''
-
+    tij=int_in['tij']
+    
     # For testing to check the symmetry of the tij matrix
     n_orb=len(orb_names)
-    if sym: # Check the sym verus provided reps
-        check_sym_t_mat(tij,n_orb)         
 
     # TEST: use diagonal basis
-    if diag_basis:
+    if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='tij')
+
+    if int_in['sym']: # Check the sym verus provided reps
+        check_sym_t_mat(tij,n_orb)         
 
         
     # Make noniteracting operator
@@ -335,6 +348,11 @@ def add_hopping(H,spin_names,orb_names,tij,sym,diag_basis):
             for o2 in orb_names:
                 H_kin += 0.5*tij[int(o1),int(o2)] * (c_dag(s,o1) * c(s,o2)+ c_dag(s,o2) * c(s,o1))
     H += H_kin
+
+    if verbose:
+        print("Ind prtcl:")
+        print(H_kin)
+    
     return H
 #*************************************************************************************
 
@@ -365,7 +383,7 @@ def flip_u_index(n_orb,uijkl):
 
 #*************************************************************************************
 # Double counting
-def add_double_counting(H,spin_names,orb_names,fops,uijkl,tij,mo_den,dc_x_wt,flip=False,dc_opt=0):
+def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False):
     '''
     Subtract double counting correction to the Hamiltonian. Very much
     in the testing phase.
@@ -386,11 +404,21 @@ def add_double_counting(H,spin_names,orb_names,fops,uijkl,tij,mo_den,dc_x_wt,fli
     H: Hamiltonian with DC subtracted
     '''
 
+    # Get variables from int_in
+    tij=int_in['tij']
+    uijkl=int_in['uijkl']
+    dc_x_wt=int_in['dc_x_wt']
+    dc_opt=int_in['dc_opt']
+
+    
     n_orb=len(orb_names)
 
-    if flip:
+    if int_in['flip']:
         uijkl=flip_u_index(n_orb,uijkl)
 
+    # BASIS CHANGE TO "BAND"
+    if int_in['diag_basis']:
+        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
     
     if dc_opt < 0: # Use averaged density
         avg_den=np.trace(mo_den)/n_orb
@@ -432,10 +460,16 @@ def add_double_counting(H,spin_names,orb_names,fops,uijkl,tij,mo_den,dc_x_wt,fli
                 fock=0
                 for k in range(0,n_orb):
                     for l in range(0,n_orb):
-                            fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
-                            
+                        fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
 
+                        # TEST: See what terms are included
+                        if verbose:
+                            if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
+                                print(s,i,j,k,l,uijkl[i,l,j,k],dc_x_wt*uijkl[i,l,k,j])
+                            
                 H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
+
+
                 
     # From Karsten and Flensberg Eq. 4.22 and 4.23
 #    for s in spin_names:  
@@ -452,10 +486,120 @@ def add_double_counting(H,spin_names,orb_names,fops,uijkl,tij,mo_den,dc_x_wt,fli
 
     H += H_dc
 
-    #print(H_dc)
+    if verbose:
+        print("DC:")
+        print(H_dc)
+
+        for ii in range(0,n_orb):
+            for jj in range(0,n_orb):
+                for kk in range(0,n_orb):
+                    for ll in range(0,n_orb):
+                        print(ii,jj,kk,ll,uijkl[ii,jj,kk,ll])
+
     #quit()
 
     return H
+#*************************************************************************************
+
+#*************************************************************************************
+# Calculate the MF HF coulomb part and use it as DC
+def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
+
+    gf_struct = [[spin_names[0], orb_names], 
+                 [spin_names[1], orb_names]]
+    beta_temp=100.0
+    n_orb=len(orb_names)
+
+    orbital_positions = [(0,0,0)]*n_orb*2
+
+    # No noninteracting part:
+    #units = parse_lattice_vectors_from_wannier90_wout('wannier90.wout')
+    #tbl=TBLattice(units=units,hopping={},orbital_positions=orbital_positions, orbital_names=[])
+    #h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
+
+    # Noninteracting part:
+    #hop, nb = parse_hopping_from_wannier90_hr_dat('wannier90_hr_full.dat') 
+
+    # Use diagonal basis
+    tij=int_in['tij']
+    if int_in['diag_basis']:
+        tij,uijkl=wan_diag_basis(n_orb,int_in['tij'],H_elmt='tij')
+
+    h_loc=np.kron(np.identity(2),tij) 
+    nb=4
+    hop={(0,0,0):h_loc}
+    
+    units = parse_lattice_vectors_from_wannier90_wout('wannier90.wout')
+    tbl=TBLattice(units=units,hopping=hop,orbital_positions=orbital_positions, orbital_names=[])  
+    h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
+    
+    # Interaction part of H:
+    H_int=Operator()
+    H_int=add_interaction(H_int,1,spin_names,orb_names,fops,int_in)
+
+    # Solve hartree-fock equation
+    HFS = HartreeFockSolver(h_k, beta_temp, H_int=H_int, gf_struct=gf_struct)
+    HFS.solve_iter(target_occ)
+    #HFS.solve_newton(target_occ) 
+    
+    # Make noniteracting operator
+    H_kin=Operator()
+    for s in spin_names:
+        for o1 in orb_names:
+            for o2 in orb_names:
+                H_kin += -0.5*HFS.M[int(o1),int(o2)] * (c_dag(s,o1) * c(s,o2)+ c_dag(s,o2) * c(s,o1))
+
+    H+=H_kin
+        
+    return H
+
+#*************************************************************************************
+
+#*************************************************************************************
+# DC correction for cbcn using the "DFT" approach from Malte
+def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
+
+    uijkl=int_in['uijkl']
+    tij=int_in['tij']
+    n_orb=len(orb_names)
+
+    # Get evecs to eventually transform back
+    if not int_in['diag_basis']:
+        evals,evecs=np.linalg.eig(int_in['tij'])
+
+    if int_in['flip']:
+        uijkl=flip_u_index(n_orb,uijkl)
+        
+    # Basis change to band
+    tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
+    
+    # Assume that our basis is [[b*,0],[0,b]]
+    tij_dc=np.array([[uijkl[1,0,1,0],0.0],[0.0,uijkl[1,1,1,1]]])
+
+    #tij[0,0]+=uijkl[1,0,1,0]
+    #tij[1,1]+=uijkl[1,1,1,1]
+
+    #print(uijkl[1,0,1,0],uijkl[1,1,1,1])
+    
+    # If in orbital basis, transform back
+    if not int_in['diag_basis']:
+        tij_dc=np.matmul(np.matmul(np.linalg.inv(evecs.T),tij_dc),evecs.T)
+     
+    # Make noniteracting operator
+    H_dft_dc=Operator()
+    for s in spin_names:
+        for o1 in orb_names:
+            for o2 in orb_names:
+                H_dft_dc += -0.5*tij_dc[int(o1),int(o2)] * (c_dag(s,o1) * c(s,o2)+ c_dag(s,o2) * c(s,o1))
+
+    H += H_dft_dc
+
+    if verbose:
+        print("DFT DC:")
+        print(H_dft_dc)
+    
+    return H
+    
 #*************************************************************************************
 
 #*************************************************************************************
@@ -505,6 +649,7 @@ def make_two_ind_U(n_orb,uijkl,verbose=False,U_elem=[True,True]):
     
     return uij,jij,uijkl_avg
 #*************************************************************************************
+
 
 #*************************************************************************************
 # Average U values
@@ -580,7 +725,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
 #*************************************************************************************
 # Setup the Hamiltonian
-def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,tij=[],mo_den=[]):
+def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
     '''
     Add terms to the Hamiltonian depending on the input file.
     
@@ -590,7 +735,6 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,tij=[],mo_den=[]):
     fops: Many-body operators
     comp_H: List of components of the Hamiltonian
     int_in: Input parameters
-    tij: Hopping matrix elements
     mo_den: Occupation in the band basis
 
     Outputs:
@@ -604,23 +748,27 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,tij=[],mo_den=[]):
     H=Operator()
 
     # kinetic
-    if comp_H['Hkin']: 
-        H = add_hopping(H,spin_names,orb_names,tij,int_in['sym'],int_in['diag_basis'])
+    if comp_H['Hkin']:
 
+        H = add_hopping(H,spin_names,orb_names,int_in)
+        
     # Double counting
-    if comp_H['Hdc']: 
-        H = add_double_counting(H,spin_names,orb_names,\
-                                fops,int_in['uijkl'],tij,mo_den,int_in['dc_x_wt'],flip=int_in['flip'],dc_opt=int_in['dc_opt'])
+    if comp_H['Hdc']:
 
+        if int_in['dc_typ']==0:
+            H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den)
+        elif int_in['dc_typ']==1:
+            H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
+        elif int_in['dc_typ']==2:
+            H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
+            
     # Interaction
     if comp_H['Hint']:
-        H = add_interaction(H,tij,1,spin_names,orb_names,fops,int_in)
-
-            #H,1,int_in['int_op'],spin_names,orb_names,fops,uijkl=int_in['uijkl'],U=int_in['U_int'],J=int_in['J_int'],sym=int_in['sym']) 
+        H = add_interaction(H,1,spin_names,orb_names,fops,int_in)
 
     # Chemical potential
     H,ad,dm,N = add_chem_pot(H,spin_names,orb_names,mu_in['mu_int'],fops,mu_in['tune_opt'],target_occ=mu_in['target_occ']) 
-
+    
 
     return H,ad,dm,N
 #*************************************************************************************
@@ -629,7 +777,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,tij=[],mo_den=[]):
 # Read in the input file
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
-                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0}, \
+                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0}, \
                 mu_in = {'tune_opt':False,'mu_int':-8.5,'target_occ':5.0}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
                 mb_char_spin = True,n_print = [0,42]):
@@ -734,6 +882,8 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',wan_file='',dft_den
                 int_in['int_opt']=int(val)
             elif var=='dc_opt':
                 int_in['dc_opt']=int(val)
+            elif var=='dc_typ':
+                int_in['dc_typ']=int(val)
             elif var=='U_int':
                 int_in['U_int']=float(val)
             elif var=='J_int':
@@ -846,6 +996,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',wan_file='',dft_den
 
         print('Largest intersite hop:', max_inter)
         tij=np.reshape(np.array(tij),(n_orb,n_orb))
+        int_in['tij']=tij
         t_file.close()
         
     if dft_den_file:
@@ -859,7 +1010,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',wan_file='',dft_den
         den_file.close()
 
     # Setup and solve the Hamiltonian
-    H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,tij=tij,mo_den=mo_den)
+    H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=mo_den)
 
     #TEST
     #print(H)
@@ -885,12 +1036,12 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',wan_file='',dft_den
     # TEST: Check multi-reference
     check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10)
 
+
+    
     # TEST: Dipole matrix elements 
 #    for ii in range(0,12):
 #        for jj in range(ii,12):
 #            dipole_op(ad,spin_names,orb_names,fops,"wannier90_r.dat",ii,jj,eigensys)
-
-
 
 
     return eigensys,ad,fops
