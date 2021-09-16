@@ -425,7 +425,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 
     if int_in['flip']:
         uijkl=flip_u_index(n_orb,uijkl)
-        vijkl = flip_u_index(n_orb, vijkl)
+        if int_in['vijkl']: vijkl = flip_u_index(n_orb, vijkl)
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
@@ -442,7 +442,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 
         print("Ordering of states",evals)
         #quit()
-
+        
         # Convert to wannier basis
         wan_den=np.dot(np.dot(np.linalg.inv(evecs.T),mo_den),np.linalg.inv(evecs))
 
@@ -1099,6 +1099,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 mo_den.append(float(num))
         mo_den=np.reshape(np.array(mo_den),(n_orb,n_orb))
         den_file.close()
+    elif comp_H['Hdc']==True:
+        print('Must specify DFT den to use DC!')
+        quit()
 
     # Setup and solve the Hamiltonian
     H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=mo_den)
