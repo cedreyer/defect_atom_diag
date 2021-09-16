@@ -16,11 +16,11 @@ from ad_sort_print import *
 from op_dipole import *
 
 # For tprf HF
- from triqs_tprf.tight_binding import TBLattice
- from triqs_tprf.ParameterCollection import ParameterCollection
- from triqs_tprf.hf_solver import HartreeSolver, HartreeFockSolver
- from triqs_tprf.wannier90 import parse_hopping_from_wannier90_hr_dat
- from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
+from triqs_tprf.tight_binding import TBLattice
+from triqs_tprf.ParameterCollection import ParameterCollection
+from triqs_tprf.hf_solver import HartreeSolver, HartreeFockSolver
+from triqs_tprf.wannier90 import parse_hopping_from_wannier90_hr_dat
+from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 
 
