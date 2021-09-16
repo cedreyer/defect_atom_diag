@@ -129,11 +129,11 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     # Need to flip indicies of uijkl coming from VASP
     if int_in['flip']:
         uijkl=flip_u_index(n_orb,int_in['uijkl'])
-        vijkl = flip_u_index(n_orb, int_in['vijkl'])
+        if int_in['vijkl']: vijkl = flip_u_index(n_orb, int_in['vijkl'])
         print('uijkl -> uikjl')
     else:
         uijkl=int_in['uijkl']
-        vijkl = int_in['vijkl']
+        if int_in['vijkl']: vijkl = int_in['vijkl']
         print('uijkl -> uijkl')
 
 
