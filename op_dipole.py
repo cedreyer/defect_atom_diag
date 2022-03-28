@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
-from pytriqs.operators.util.hamiltonians import *
-from pytriqs.operators.util import *
-from pytriqs.operators import *
-from pytriqs.gf import *
-from pytriqs.archive import HDFArchive
-from pytriqs.atom_diag import *
+from triqs.operators.util.hamiltonians import *
+from triqs.operators.util import *
+from triqs.operators import *
+from triqs.gf import *
+from triqs.atom_diag import *
 from itertools import product
 
 import numpy as np

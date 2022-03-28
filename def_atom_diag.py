@@ -1,11 +1,10 @@
 #!/usr/bin/pythonA
 
-from pytriqs.operators.util.hamiltonians import *
-from pytriqs.operators.util import *
-from pytriqs.operators import *
-from pytriqs.gf import *
-from pytriqs.archive import HDFArchive
-from pytriqs.atom_diag import *
+from triqs.operators.util.hamiltonians import *
+from triqs.operators.util import *
+from triqs.operators import *
+from triqs.gf import *
+from triqs.atom_diag import *
 from itertools import product
 
 import numpy as np
@@ -376,7 +375,7 @@ def flip_u_index(n_orb,uijkl):
     uijkl_new: Uijkl with indicies switched
     '''
 
-    uijkl_new=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float)
+    uijkl_new=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
     for i in range(0,n_orb):
         for j in range(0,n_orb):
             for k in range(0,n_orb):
@@ -1020,7 +1019,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     if uijkl_file:
         u_file = open(uijkl_file,"r")
 
-        uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float)
+        uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
         for line in u_file:
 
             # skip lines for vijkl
