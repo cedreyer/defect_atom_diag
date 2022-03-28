@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
-from pytriqs.operators.util.hamiltonians import *
-from pytriqs.operators.util import *
-from pytriqs.operators import *
-from pytriqs.gf import *
-from pytriqs.archive import HDFArchive
-from pytriqs.atom_diag import *
+from triqs.operators.util.hamiltonians import *
+from triqs.operators.util import *
+from triqs.operators import *
+from triqs.gf import *
+from triqs.atom_diag import *
 from itertools import product
 
 import numpy as np
@@ -37,18 +36,18 @@ def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2
     '''
 
     if occ_print:
-        print "Ground state occupancies"
+        print("Ground state occupancies")
         for s in spin_names:
             for o1 in orb_names:
-                print o1,s, trace_rho_op(dm, n(s,o1) , ad)
+                print(o1,s, trace_rho_op(dm, n(s,o1) , ad))
 
     # Angular momentum
     if s2_print:
         S2=S2_op(spin_names,orb_names,off_diag=True)
-        print "s(s+1) = ",trace_rho_op(dm, S2, ad)
+        print("s(s+1) = ",trace_rho_op(dm, S2, ad))
     if l2_print:
         L2=L2_op(spin_names,orb_names,off_diag=True)
-        print "l(l+1) = ",trace_rho_op(dm, L2, ad)
+        print("l(l+1) = ",trace_rho_op(dm, L2, ad))
 
     return
 #*************************************************************************************
@@ -86,7 +85,8 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
         f_eng= open(out_label+"energy_deg.dat","w+")
 
         for u in range(n_print):
-            print '{} {}'.format('E =',unique_energies[u]), ' # ', counts[u]
+            print('E=',unique_energies[u],'#',counts[u])
+            #print('{} {}'.format('E =',unique_energies[u]), ' # ', counts[u])
             f_eng.write(' %s  %s\n' % (unique_energies[u], counts[u]))
             
         f_eng.close()
