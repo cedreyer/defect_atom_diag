@@ -10,6 +10,8 @@ from itertools import product
 import numpy as np
 import sympy as sp
 import math
+import sys
+import time
 
 from ad_sort_print import *
 from op_dipole import *
@@ -29,7 +31,7 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
-def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_occ=5.0):
+def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
     '''
     Solve the atomic problem and tune the chemical potential to the
     target filling. Very inefficient way of doing it but works for now.
@@ -38,11 +40,9 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
     H: Hamiltonian operator
     spin_names: List of spins
     orb_names: List of orbitals
-    init_mu: Initial chemical potential
     fops: Many-body operators
-    tune_opt: Logical, to tune chemical potential
+    mu_in: Dictionary for chem pot options
     step: Steps to increment chemical potential
-    targer_occ: Occupation we are shooting for
 
     Outputs:
     H: Hamiltonian with chemical potential term added
@@ -51,7 +51,15 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
     N: Number operator
     '''
 
+    mu_init=mu_in['mu_init']
+    tune_occ=mu_in['tune_occ']
+    target_occ=mu_in['target_occ']
+    const_occ=mu_in['const_occ']
 
+    if tune_occ and const_occ:
+        print('ERROR: You have to choose between tuning and constraining the occupation.')
+        sys.exit(1)
+    
     # Setup the particle number operator
     N = Operator() # Number of particles
     for s in spin_names:
@@ -59,17 +67,21 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
             N += n(s,o)
 
     filling=0
-    mu=init_mu
+    mu=mu_init
+
+    # Constrained occupation:
+    if const_occ:
+        ad = AtomDiagComplex(H, fops, n_min=int(target_occ), n_max=int(target_occ))
 
     # Tune the chemical potential to get desired occupancy, solve the
     # atomic problem
-    if tune_opt:
+    elif tune_occ:
         while True:
             # Add chemical potential
             H += mu * N
 
             # Split the Hilbert space automatically
-            ad = AtomDiagComplex(H, fops)
+            ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
             beta = 1e5
             dm = atomic_density_matrix(ad, beta)
             filling = trace_rho_op(dm, N, ad)
@@ -84,16 +96,20 @@ def add_chem_pot(H,spin_names,orb_names,init_mu,fops,tune_opt,step=0.5,target_oc
             elif filling.real > target_occ:
                 H += -mu * N
                 mu+=step
-
-    else: # No tuning
+                
+    else: # Use input chemical potential
         H += mu * N
         ad = AtomDiagComplex(H, fops)
-        beta = 1e10
-        dm = atomic_density_matrix(ad, beta)
-        filling = trace_rho_op(dm, N, ad)
 
-    print("Chemical potential: ",mu)
+    beta = 1e10
+    dm = atomic_density_matrix(ad, beta)
+    filling = trace_rho_op(dm, N, ad)
+
+    if not const_occ:
+        print("Chemical potential: ",mu)
     print('# of e-: ', filling)
+
+
     return H,ad,dm,N
 #*************************************************************************************
 
@@ -830,7 +846,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
         H = add_interaction(H,1,spin_names,orb_names,fops,int_in)
 
     # Chemical potential
-    H,ad,dm,N = add_chem_pot(H,spin_names,orb_names,mu_in['mu_int'],fops,mu_in['tune_opt'],target_occ=mu_in['target_occ'])
+    H,ad,dm,N = add_chem_pot(H,spin_names,orb_names,fops,mu_in)
 
 
     return H,ad,dm,N
@@ -841,7 +857,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1}, \
-                mu_in = {'tune_opt':False,'mu_int':-8.5,'target_occ':5.0}, \
+                mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
                 mb_char_spin = True,n_print = [0,42]):
 
@@ -865,7 +881,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     comp_H = {'Hkin':False,'Hint':False,'Hdc':False}
     int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'flip':False,'dc_x_wt':0.5,'dc_opt':0,'eps_eff':1}
-    mu_in = {'tune_opt':False,'mu_int':-8.5,'target_occ':5.0}
+    mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0}
 
     prt_occ = False
     prt_state = False
@@ -900,13 +916,13 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             if line=='\n' or line.strip()=='':
                 continue
 
-            var=line.split()[0]
+            var=line.split('=')[0].strip()
 
             # Skip comments
             if str.startswith(var,'#'):
                 continue
 
-            val=line.split()[2]
+            val=line.split('=')[1].strip()
 
             # Input files
             if var=='uijkl_file':
@@ -971,13 +987,16 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                     int_in['diag_basis']=True
 
             # Chemical potential, etc
-            elif var=='tune_opt':
+            elif var=='tune_occ':
                 if val=='True' or val=='T' or val=='true':
-                    mu_in['tune_opt']=True
-            elif var=='mu_int':
-                mu_in['mu_int']=float(val)
+                    mu_in['tune_occ']=True
+            elif var=='mu_init':
+                mu_in['mu_init']=float(val)
             elif var=='target_occ':
                 mu_in['target_occ']=float(val)
+            elif var=='const_occ':
+                if val=='True' or val=='T' or val=='true':
+                    mu_in['const_occ']=True
 
             # Options for printing and output
             elif var=='out_label':
@@ -999,8 +1018,8 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                     prt_mrchar=True
 
             elif var=='n_print':
-                n_print[0]=int(val)
-                n_print[1]=int(line.split()[3])
+                n_print[0]=int(val.split()[0].strip())
+                n_print[1]=int(val.split()[1].strip())
 
             elif var=='prt_mbchar':
                 if val=='True' or val=='T' or val=='true':
@@ -1103,10 +1122,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         quit()
 
     # Setup and solve the Hamiltonian
+    start = time.time()
     H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=mo_den)
-
-    #TEST
-    #print(H)
+    end = time.time()
+    print("Time to setup and solve H:",end-start)
 
     # print out occupations and angular momentum
     if prt_occ:
@@ -1114,20 +1133,29 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     # Get eigenstates sorted by energies
     if prt_eigensys:
+        start = time.time()
         eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,target_mu=mu_in['target_occ'])
+        end = time.time()
+        print("Time to get eigenstates sorted by energies:",end-start)
 
     # Print out energies and degeneracies
     if prt_energy:
+        start = time.time()
         counts=get_eng_degen_eigensys(ad,eigensys,out_label,prec=10)
+        end = time.time()
+        print("Time to print out energies and degeneracies:",end-start)
 
     # Print out characters of degeneracies
     if prt_mbchar:
+        start = time.time()
         mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=n_print[1],spin=mb_char_spin)
+        end = time.time()
+        print("Time to print out characters of degeneracies:",end-start)
 
 
 
     # TEST: Check multi-reference
-    check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10)
+    #check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10)
 
     # TEST: Dipole matrix elements
 #    for ii in range(0,12):

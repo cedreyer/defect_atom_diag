@@ -247,7 +247,7 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     '''
     Get symmetry character for given symmetry operation. First we
     express state as raising operators applied to vacuum, then
-    trasfrom the operators using the representation, finally use act
+    trasform the operators using the representation, finally use act
     function to calculate inner product.
 
     Inputs:
@@ -263,13 +263,18 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     char: Symmetry character <\psi_i | \hat{R} \vert \psi_i >
     '''
 
+    # Test to make sure that the vacuum state is in the space
+    if np.dot(ad.vacuum_state,ad.vacuum_state) < 1.e-10:
+        print("ERROR: The vacuum state must be included for symmetry analysis (no constrained occ.)")
+        sys.exit()
+
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     n_fock= n_orb*n_spin
 
     
     i_state=eigensys[i_mb_st][0].split('>')
-
+    
     n_i=len(i_state)
 
     op_on_vacuum=Operator()
@@ -314,10 +319,15 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
                 
         op_on_vacuum += coeff1*op_vac
     
+
+    # TEST
+    #print(op_on_vacuum)
+    #quit()
     # Calculate character <\Psi | sym_op | \Psi>
     # i_mb_st is in terms of order in eigensys. Get state index in Hilbert space
     state_l = np.zeros((int(ad.full_hilbert_space_dim)))
     state_l[int(eigensys[i_mb_st][3])]=1
+    
     char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
     
     return char
