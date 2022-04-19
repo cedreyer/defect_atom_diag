@@ -1,13 +1,12 @@
-# For now, need to have spaces around the '='
 
 # Input files
 uijkl_file = UIJKL
 wan_file = wannier90_hr.dat
-#dft_den_file = den.dat
+dft_den_file = den.dat
 
 # Operators
 spin_names = up dn
-orb_names = 0 1 2 3
+orb_names = 0 1 2 3 4
 
 # Parts of the Hamiltonian
 Hkin = True
@@ -15,18 +14,26 @@ Hint = True
 Hdc = True
 
 # Interaction parameters
-int_op = 2
+int_opt = 0
 flip = True
+dc_opt = 0
+dc_x_wt = 0.0
 
 # Chemical potential etc.
-tune_opt = True
-mu_int = -18.0
-target_occ = 6.0
+#tune_occ = True
+const_occ = True
+mu_init = -9.0
+target_occ = 5.0
+#diag_basis = True
 
 # Options for printing
 prt_occ = True
 prt_energy = True
 prt_eigensys = True
 prt_state = True
-n_print = 1 10
-prt_mrchar = True
+n_print = 0 42
+
+sym = True
+#prt_mbchar = True
+#mb_char_spin = False
+#prt_mrchar = True
