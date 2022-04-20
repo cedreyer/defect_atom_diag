@@ -392,14 +392,14 @@ def get_spin_rep(sym_op,verbose=False):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps(wf_file_names,point_grp,file_type='cube',center_in_cell=False,cht_rnd=0.01):
+def print_reps(wan_files,point_grp,file_type='cube',center_in_cell=False,cht_rnd=0.01):
     '''
     Create file 'reps.dat' that includes: The symmetry operations, the
     orbital representations and characters, and the spin 1/2
     representations and characters.
 
     Inputs:
-    wf_file_names: Names of the wannier function files
+    wan_files: File containing names of the wannier function files
     point_grp: Hermann-Mauguin notation of point group
     file_type: Type of wannier function files, either xsf or cube
     cht_rnd: USed to round elements of reps
@@ -427,6 +427,13 @@ def print_reps(wf_file_names,point_grp,file_type='cube',center_in_cell=False,cht
       0.00000+0.00000j
     '''
 
+    # Get Wannier function file names
+    wf_file_names=[]
+    with open(wan_files,'r') as f:
+        for line in f:
+            wf_file_names.append(line.strip())
+
+            
     # Get symmetry operations from pymatgen
     if point_grp=='3m' or point_grp=='-3m':
         pt_sym_ops=get_sym_ops(point_grp,verbose=False,rhom=True)
@@ -696,22 +703,8 @@ def center_wan_func(wann1,n_mesh,wrt_tot_com=False,com_tot=0.0,mod_wan=True):
 # END OF FUNCTIONS
 # ---------
 
-# Wannier function cube files
-
-# Triqs basis
-wf_file_names=['wannier90_00005.cube','wannier90_00003.cube','wannier90_00001.cube','wannier90_00002.cube','wannier90_00004.cube']
-
-# switch tst
-#wf_file_names=['wannier90_00001.cube','wannier90_00002.cube','wannier90_00003.cube','wannier90_00004.cube','wannier90_00005.cube']
+if __name__ == '__main__':
+    print_reps('wan_files.dat','-43m',file_type='cube')
+    
 
 
-
-# Generate reps.dat
-print_reps(wf_file_names,'-43m',file_type='cube')
-#print_reps(wf_file_names,'-43m',file_type='xsf')
-#print_reps(wf_file_names,'3m',file_type='xsf',cht_rnd=0.01)   
- 
-
-#sym_op=np.identity(3)
-#shift=np.array([0,0,0])
-#transform_xsf('wannier90_00001.xsf',sym_op,shift,'CEN_wannier90_00001.xsf',center_in_cell=False)

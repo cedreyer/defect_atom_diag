@@ -20,11 +20,9 @@ dc_opt = 0
 dc_x_wt = 0.0
 
 # Chemical potential etc.
-#tune_occ = True
 const_occ = True
 mu_init = -9.0
 target_occ = 5.0
-#diag_basis = True
 
 # Options for printing
 prt_occ = True
@@ -34,6 +32,7 @@ prt_state = True
 n_print = 0 42
 
 sym = True
+# Cannot get sym characters for const_occ!
 #prt_mbchar = True
 #mb_char_spin = False
 #prt_mrchar = True
