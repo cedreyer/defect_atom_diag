@@ -915,13 +915,14 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             # Skip blank lines
             if line=='\n' or line.strip()=='':
                 continue
-
-            var=line.split('=')[0].strip()
-
+            
             # Skip comments
-            if str.startswith(var,'#'):
+            if str.startswith(line,'#'):
                 continue
-
+            elif '#' in line:
+                line=line.split('#')[0].strip()
+                
+            var=line.split('=')[0].strip()
             val=line.split('=')[1].strip()
 
             # Input files

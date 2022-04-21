@@ -131,6 +131,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     eigensys=[]
     # Loop through subspaces
     for sub in range(0,ad.n_subspaces):
+
         skip_sub=False
         # get fock state in nice format
         subspace_fock_state=[]
@@ -142,7 +143,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             #if tune_opt and sum(map(int,str(state))) != target_mu: 
             #print(sum(map(int,str(state))))
             if sum(map(int,str(state))) != target_mu: 
-                skip_sub=True
+                skip_sub=True                
                 break
                 
             state_leng=n_orb*2
@@ -150,22 +151,22 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             state_bin="|"+fmt.format(state)+">"
             state_bin_sym=sp.symbols(state_bin)
             subspace_fock_state.append(state_bin_sym)
-
+            
         if skip_sub:
             n_eigenvec += len(ad.fock_states[sub]) 
             continue
-        
         
         # convert to eigenstate 
         kp = sp.kronecker_product
         u_mat=sp.Matrix(np.round(ad.unitary_matrices[sub],3).conj().T)
         st_mat=sp.Matrix(subspace_fock_state)
         eig_state=np.matrix(u_mat*st_mat)
+        
         # format eigenstate:
         sub_state=[]
         for row in eig_state:
             sub_state.append(str(row).replace('[','').replace(']',''))    
-
+        
         # store state and energy    
         for ind in range(0,ad.get_subspace_dim(sub)):
 
@@ -183,7 +184,6 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
                 
             # Keep track of the absolute number of eigenstate
             n_eigenvec += 1
-
 
     # Sort by energy
     eigensys.sort(key=take_second)
