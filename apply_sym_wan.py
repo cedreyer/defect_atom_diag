@@ -2,14 +2,14 @@
 
 import numpy as np
 import scipy.interpolate as inter
-import scipy.ndimage.interpolation as sni
+import scipy.ndimage as sni
 import scipy as scp
 import math 
 
 # pymatgen symmetry stuff
 import pymatgen as pmg
 from  pymatgen.symmetry.groups import *
-from pymatgen.symmetry.settings import *
+#from pymatgen.symmetry.settings import *
 
 
 #*************************************************************************************
@@ -199,15 +199,15 @@ def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
     point_sym_ops: List of 2D 3x3 arrays for symmetry operations
     '''
 
-    if rhom:
-        trans_latt=JonesFaithfulTransformation.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
+    #if rhom:
+    #    trans_latt=JonesFaithfulTransformation.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),4.242640687119286(a+b-2c),0.333333333(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("1.4142135623730951(a-b),2.449489742783178(a+b-2c),1.7320508075688772(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),0.33333333(a+b-1.4142135623730951c),0.33333333(a+b+c);0,0,0")
-        if around_z:
-            trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-                                                -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-                                                0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
+    #    if around_z:
+    #        trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+    #                                            -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+    #                                            0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
         
     # From pymatgen
     point=PointGroup(pg_symbol)
@@ -392,7 +392,7 @@ def get_spin_rep(sym_op,verbose=False):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps(wan_files,point_grp,file_type='cube',center_in_cell=False,cht_rnd=0.01):
+def print_reps(wan_files,file_type='cube',center_in_cell=False,cht_rnd=0.01):
     '''
     Create file 'reps.dat' that includes: The symmetry operations, the
     orbital representations and characters, and the spin 1/2
@@ -430,10 +430,11 @@ def print_reps(wan_files,point_grp,file_type='cube',center_in_cell=False,cht_rnd
     # Get Wannier function file names
     wf_file_names=[]
     with open(wan_files,'r') as f:
-        for line in f:
+        lines=f.readlines()
+        point_grp=lines[0].strip()
+        for line in lines[1:]:
             wf_file_names.append(line.strip())
-
-            
+    
     # Get symmetry operations from pymatgen
     if point_grp=='3m' or point_grp=='-3m':
         pt_sym_ops=get_sym_ops(point_grp,verbose=False,rhom=True)
@@ -704,7 +705,7 @@ def center_wan_func(wann1,n_mesh,wrt_tot_com=False,com_tot=0.0,mod_wan=True):
 # ---------
 
 if __name__ == '__main__':
-    print_reps('wan_files.dat','-43m',file_type='cube')
+    print_reps('wan_files.dat',file_type='cube')
     
 
 
