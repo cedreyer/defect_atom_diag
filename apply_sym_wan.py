@@ -265,7 +265,7 @@ def representation_fast(sym_op,wanns,delr,n_mesh,file_type,com_tot=(0.0,0.0,0.0)
         for j in range(0,n_wf):            
             
             wann_j=wanns[j]
-    
+                
             # Apply affine transformation around center of cell or
             # total wannier function COM for xsf
             if file_type=='xsf' and not center_in_cell:
