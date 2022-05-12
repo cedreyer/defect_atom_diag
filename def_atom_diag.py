@@ -50,7 +50,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
     dm: Density matrix
     N: Number operator
     '''
-
+    
     mu_init=mu_in['mu_init']
     tune_occ=mu_in['tune_occ']
     target_occ=mu_in['target_occ']
@@ -79,7 +79,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
         while True:
             # Add chemical potential
             H += mu * N
-
+            
             # Split the Hilbert space automatically
             ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
             beta = 1e5
@@ -492,13 +492,19 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                     for l in range(0,n_orb):
                         fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
 
+                        #TEST
+                        #print('FACTOR OF 1/2')
+                        
                         # TEST: See what terms are included
                         if verbose:
                             if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
                                 print(s,i,j,k,l,uijkl[i,l,j,k],dc_x_wt*uijkl[i,l,k,j])
 
-                H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
-
+                # For both integer and string orbital names
+                if isinstance(orb_names[0], int):
+                    H_dc += -fock * c_dag(s,i) * c(s,j)
+                else:
+                    H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
 
 
     # From Karsten and Flensberg Eq. 4.22 and 4.23
@@ -535,8 +541,12 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 # Calculate the MF HF coulomb part and use it as DC
 def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
 
-    gf_struct = [[spin_names[0], orb_names],
-                 [spin_names[1], orb_names]]
+    if not isinstance(orb_names[0], int):
+        print('ERROR: Need to specify n_orb NOT orb_names in input file so names are integers for the HF solver!!')
+        quit()
+    
+    gf_struct = [[spin_names[0], len(orb_names)],
+                 [spin_names[1], len(orb_names)]]
     beta_temp=100.0
     n_orb=len(orb_names)
 
@@ -552,6 +562,7 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
 
     # Use diagonal basis
     tij=int_in['tij']
+
     if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,int_in['tij'],H_elmt='tij')
 
@@ -560,13 +571,27 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
     hop={(0,0,0):h_loc}
 
     units = parse_lattice_vectors_from_wannier90_wout('wannier90.wout')
-    tbl=TBLattice(units=units,hopping=hop,orbital_positions=orbital_positions, orbital_names=[])
-    h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
 
+    # TEST
+    #nms=['up','0','1','dn','0','1']
+        
+    tbl=TBLattice(units=units,hopping=hop,orbital_positions=orbital_positions)#, orbital_names=nms)
+    #h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
+    #h_k=tbl.get_kmesh(n_k=(1,1,1))
+
+    kmesh=tbl.get_kmesh(n_k=(1,1,1))
+    h_k=tbl.fourier(kmesh)
+
+    #TEST
+    #print('ORB_NAMES',orb_names)
+    #quit()
+    
     # Interaction part of H:
     H_int=Operator()
     H_int=add_interaction(H_int,1,spin_names,orb_names,fops,int_in)
 
+    print(H_int)
+    
     # Solve hartree-fock equation
     HFS = HartreeFockSolver(h_k, beta_temp, H_int=H_int, gf_struct=gf_struct)
     HFS.solve_iter(target_occ)
@@ -830,7 +855,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
     if comp_H['Hkin']:
 
         H = add_hopping(H,spin_names,orb_names,int_in)
-
+    
     # Double counting
     if comp_H['Hdc']:
 
@@ -840,7 +865,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
             H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
         elif int_in['dc_typ']==2:
             H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
-
+            
     # Interaction
     if comp_H['Hint']:
         H = add_interaction(H,1,spin_names,orb_names,fops,int_in)
@@ -857,7 +882,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1}, \
-                mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
+                mu_in = {'tune_occ':True,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
                 mb_char_spin = True,n_print = [0,42]):
 
@@ -928,7 +953,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             # Input files
             if var=='uijkl_file':
                 uijkl_file=val
-            if var=='vijkl_file':
+            elif var=='vijkl_file':
                 vijkl_file=val
             elif var=='wan_file':
                 wan_file=val
@@ -946,8 +971,12 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                     orb_names.append(names)
             elif var=='n_orbs':
                 orb_names=[]
-                for i in range(0,val):
+                for i in range(0,int(val)):
                     orb_names.append(i)
+                # TEST: convert to int
+                #orb_names=list(map(int,orb_names))
+                #print('ORB',orb_names)
+                #quit()
 
             # Parts of the Hamiltonian
             elif var=='Hkin':
@@ -1029,12 +1058,16 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='False' or val=='F' or val=='false':
                     mb_char_spin=False
 
+            else:
+                print('ERROR: Unknown input parameter:',var)
+                quit()
+                
         in_file.close()
 
     # Setup the operators
     n_orb=len(orb_names)
     fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
-
+    
     # Read in the uijkl files. Skip lines of vijkl
     if uijkl_file:
         u_file = open(uijkl_file,"r")
