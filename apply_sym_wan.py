@@ -238,7 +238,7 @@ def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
 
 #*************************************************************************************
 # For a given symmetry operation, calculate the representation
-def representation_fast(sym_op,wanns,delr,n_mesh,file_type,com_tot=(0.0,0.0,0.0),center_in_cell=False,cheat=True,cht_rnd=0.01):
+def representation_fast(sym_op,wanns,delr,n_mesh,file_type,com_tot=(0.0,0.0,0.0),center_in_cell=False,cheat=True,cht_rnd=0.05):
     '''Calculate the single-particle symmetry representation matrix for
     symmerty operation given by sym_op.
 
