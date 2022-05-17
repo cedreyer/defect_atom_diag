@@ -61,6 +61,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
         sys.exit(1)
     elif not tune_occ and not const_occ:
         print('WARNING: Assuming tune_occ')
+
     
     # Setup the particle number operator
     N = Operator() # Number of particles
@@ -83,8 +84,11 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
             H += mu * N
             
             # Split the Hilbert space automatically
-            #ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
-            ad = AtomDiagComplex(H, fops) # No const occ for backwards compatability
+            try:
+                ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
+            except:
+                ad = AtomDiagComplex(H, fops) # No const occ for backwards compatability
+                
             beta = 1e5
             dm = atomic_density_matrix(ad, beta)
             filling = trace_rho_op(dm, N, ad)
@@ -220,14 +224,14 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
 
     #Print U matrix
-    if verbose:
-        for ii in range(0,n_orb):
-            for jj in range(0,n_orb):
-                for kk in range(0,n_orb):
-                    for ll in range(0,n_orb):
-                        if abs(np.real(uijkl[ii,jj,kk,ll])) > 1e-5:
-                            print("{:.0f}    {:.0f}     {:.0f}     {:.0f}    {:.5f}"\
-                                  .format(ii,jj,kk,ll,np.real(uijkl[ii,jj,kk,ll])))
+    #if verbose:
+    #    for ii in range(0,n_orb):
+    #        for jj in range(0,n_orb):
+    #            for kk in range(0,n_orb):
+    #                for ll in range(0,n_orb):
+    #                    if abs(np.real(uijkl[ii,jj,kk,ll])) > 1e-5:
+    #                        print("{:.0f}    {:.0f}     {:.0f}     {:.0f}    {:.5f}"\
+    #                              .format(ii,jj,kk,ll,np.real(uijkl[ii,jj,kk,ll])))
 
 
 
@@ -236,8 +240,15 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
         check_sym_u_mat(uijkl,n_orb)
 
     # Add the interactions
-    H += h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
+    H_int = h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
 
+    if verbose:
+        print("Interaction:")
+        print(H_int)
+    
+    
+    H+=H_int
+    
     return H
 #*************************************************************************************
 
@@ -370,7 +381,7 @@ def add_hopping(H,spin_names,orb_names,int_in,verbose=False):
     for s in spin_names:
         for o1 in orb_names:
             for o2 in orb_names:
-                H_kin += 0.5*tij[int(o1),int(o2)] * (c_dag(s,o1) * c(s,o2)+ c_dag(s,o2) * c(s,o1))
+                H_kin += 0.5*(tij[int(o1),int(o2)] * c_dag(s,o1) * c(s,o2)+ np.conj(tij[int(o1),int(o2)])*c_dag(s,o2) * c(s,o1))
     H += H_kin
 
     if verbose:
@@ -394,7 +405,11 @@ def flip_u_index(n_orb,uijkl):
     uijkl_new: Uijkl with indicies switched
     '''
 
-    uijkl_new=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
+    if isinstance(uijkl[0,0,0,0],complex):
+        uijkl_new=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.complex128)
+    else:
+        uijkl_new=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
+        
     for i in range(0,n_orb):
         for j in range(0,n_orb):
             for k in range(0,n_orb):
@@ -499,9 +514,9 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                         #print('FACTOR OF 1/2')
                         
                         # TEST: See what terms are included
-                        if verbose:
-                            if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
-                                print(s,i,j,k,l,uijkl[i,l,j,k],dc_x_wt*uijkl[i,l,k,j])
+                        #if verbose:
+                        #    if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
+                        #        print(s,i,j,k,l,uijkl[i,l,j,k],dc_x_wt*uijkl[i,l,k,j])
 
                 # For both integer and string orbital names
                 if isinstance(orb_names[0], int):
@@ -529,11 +544,11 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
         print("DC:")
         print(H_dc)
 
-        for ii in range(0,n_orb):
-            for jj in range(0,n_orb):
-                for kk in range(0,n_orb):
-                    for ll in range(0,n_orb):
-                        print(ii,jj,kk,ll,uijkl[ii,jj,kk,ll])
+        #for ii in range(0,n_orb):
+        #    for jj in range(0,n_orb):
+        #        for kk in range(0,n_orb):
+        #            for ll in range(0,n_orb):
+        #                print(ii,jj,kk,ll,uijkl[ii,jj,kk,ll])
 
     #quit()
 
@@ -832,7 +847,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
 #*************************************************************************************
 # Setup the Hamiltonian
-def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
+def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     '''
     Add terms to the Hamiltonian depending on the input file.
 
@@ -842,6 +857,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
     fops: Many-body operators
     comp_H: List of components of the Hamiltonian
     int_in: Input parameters
+    verbose: Print out parts of H
     mo_den: Occupation in the band basis
 
     Outputs:
@@ -857,13 +873,13 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
     # kinetic
     if comp_H['Hkin']:
 
-        H = add_hopping(H,spin_names,orb_names,int_in)
+        H = add_hopping(H,spin_names,orb_names,int_in,verbose=verbose)
     
     # Double counting
     if comp_H['Hdc']:
 
         if int_in['dc_typ']==0:
-            H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den)
+            H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
         elif int_in['dc_typ']==1:
             H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
         elif int_in['dc_typ']==2:
@@ -871,7 +887,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
             
     # Interaction
     if comp_H['Hint']:
-        H = add_interaction(H,1,spin_names,orb_names,fops,int_in)
+        H = add_interaction(H,1,spin_names,orb_names,fops,int_in,verbose=verbose)
 
     # Chemical potential
     H,ad,dm,N = add_chem_pot(H,spin_names,orb_names,fops,mu_in)
@@ -884,10 +900,10 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
 # Read in the input file
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
-                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1}, \
+                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
-                mb_char_spin = True,n_print = [0,42]):
+                mb_char_spin = True,n_print = [0,42],verbose=False):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -991,7 +1007,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='Hdc':
                 if val=='True' or val=='T' or val=='true':
                     comp_H['Hdc']=True
-
+                    
             # Interaction parameters
             elif var=='int_opt':
                 int_in['int_opt']=int(val)
@@ -1013,7 +1029,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='sym':
                 if val=='True' or val=='T' or val=='true':
                     int_in['sym']=True
-
+            elif var=='cmplx':
+                if val=='True' or val=='T' or val=='true':
+                    int_in['cmplx']=True
+                    
             # TEST: change basis
             elif var=='diag_basis':
                 if val=='True' or val=='T' or val=='true':
@@ -1061,6 +1080,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='False' or val=='F' or val=='false':
                     mb_char_spin=False
 
+            elif var=='verbose':
+                if val=='True' or val=='T' or val=='true':
+                    verbose=True
+
             else:
                 print('ERROR: Unknown input parameter:',var)
                 quit()
@@ -1075,7 +1098,11 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     if uijkl_file:
         u_file = open(uijkl_file,"r")
 
-        uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
+        if int_in['cmplx']:
+            uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.complex128)
+        else:
+            uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
+            
         for line in u_file:
 
             # skip lines for vijkl
@@ -1086,8 +1113,11 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             j=int(line.split()[1])
             k=int(line.split()[2])
             l=int(line.split()[3])
-            uijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])
-
+            if int_in['cmplx']:
+                uijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])+1j*float(line.split()[5])
+            else:
+                uijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])
+                
         u_file.close()
 
         int_in['uijkl']=uijkl
@@ -1130,8 +1160,11 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif count > line_rwts:
                 # Only extract the intrasite elements
                 if int(line.split()[0])==0 and	int(line.split()[1])==0 and int(line.split()[2])==0:
-                    tij.append(float(line.split()[5]))
 
+                    if int_in['cmplx']:
+                        tij.append(float(line.split()[5])+1j*float(line.split()[6]))
+                    else:
+                        tij.append(float(line.split()[5]))
                 # Find largest intersite hopping
                 elif abs(float(line.split()[5])) > max_inter:
                     max_inter=float(line.split()[5])
@@ -1160,7 +1193,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     # Setup and solve the Hamiltonian
     start = time.time()
-    H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=mo_den)
+    H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=mo_den)
     end = time.time()
     print("Time to setup and solve H:",end-start)
 
@@ -1185,7 +1218,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     # Print out characters of degeneracies
     if prt_mbchar:
         start = time.time()
-        mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=n_print[1],spin=mb_char_spin)
+        if int_in['cmplx']:
+            print('ERROR: Cannot get MB characters for complex inputs at the moment')
+        else:
+            mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=n_print[1],spin=mb_char_spin)
         end = time.time()
         print("Time to print out characters of degeneracies:",end-start)
 
