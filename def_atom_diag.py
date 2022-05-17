@@ -59,6 +59,8 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
     if tune_occ and const_occ:
         print('ERROR: You have to choose between tuning and constraining the occupation.')
         sys.exit(1)
+    elif not tune_occ and not const_occ:
+        print('WARNING: Assuming tune_occ')
     
     # Setup the particle number operator
     N = Operator() # Number of particles
@@ -883,7 +885,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,mo_den=[]):
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1}, \
-                mu_in = {'tune_occ':True,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
+                mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
                 mb_char_spin = True,n_print = [0,42]):
 
