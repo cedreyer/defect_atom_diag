@@ -31,7 +31,7 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
-def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
+def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
     '''
     Solve the atomic problem and tune the chemical potential to the
     target filling. Very inefficient way of doing it but works for now.
@@ -42,7 +42,6 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
     orb_names: List of orbitals
     fops: Many-body operators
     mu_in: Dictionary for chem pot options
-    step: Steps to increment chemical potential
 
     Outputs:
     H: Hamiltonian with chemical potential term added
@@ -55,7 +54,8 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
     tune_occ=mu_in['tune_occ']
     target_occ=mu_in['target_occ']
     const_occ=mu_in['const_occ']
-
+    step=mu_in['mu_step']
+    
     if tune_occ and const_occ:
         print('ERROR: You have to choose between tuning and constraining the occupation.')
         sys.exit(1)
@@ -919,7 +919,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
-                mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
+                mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
                 mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False):
 
@@ -1067,7 +1067,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='const_occ':
                 if val=='True' or val=='T' or val=='true':
                     mu_in['const_occ']=True
+            elif var=='mu_step':
+                mu_in['mu_step']=float(val)
 
+                    
             # Options for printing and output
             elif var=='out_label':
                 out_label=val+'_'
