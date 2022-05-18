@@ -243,9 +243,10 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     H_int = h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
 
     if verbose:
+        print('')
         print("Interaction:")
         print(H_int)
-    
+        print('')
     
     H+=H_int
     
@@ -385,8 +386,10 @@ def add_hopping(H,spin_names,orb_names,int_in,verbose=False):
     H += H_kin
 
     if verbose:
+        print('')
         print("Ind prtcl:")
         print(H_kin)
+        print('')
 
     return H
 #*************************************************************************************
@@ -500,6 +503,10 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
     elif dc_opt == 8: # Use two index Uij and Ji with effective eps_eff (Danis)
         uij,jij,uijkl=effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False)
 
+    if verbose:
+        print('')
+        print("DC:")
+
 
     H_dc=Operator()
     for s in spin_names:
@@ -516,7 +523,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                         # TEST: See what terms are included
                         #if verbose:
                         #    if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
-                        #        print(s,i,j,k,l,uijkl[i,l,j,k],dc_x_wt*uijkl[i,l,k,j])
+                        #        print(s,i,j,k,l,uijkl[i,l,j,k]-dc_x_wt*uijkl[i,l,k,j]* wan_den[k,l])
 
                 # For both integer and string orbital names
                 if isinstance(orb_names[0], int):
@@ -524,6 +531,9 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                 else:
                     H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
 
+                if verbose:
+                    if abs(fock) > 1.0e-4:
+                                print(s,i,j,-fock)
 
     # From Karsten and Flensberg Eq. 4.22 and 4.23
 #    for s in spin_names:
@@ -541,9 +551,10 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
     H += H_dc
 
     if verbose:
-        print("DC:")
+        #print("DC:")
         print(H_dc)
-
+        print('')
+        
         #for ii in range(0,n_orb):
         #    for jj in range(0,n_orb):
         #        for kk in range(0,n_orb):
