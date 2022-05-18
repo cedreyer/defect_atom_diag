@@ -705,6 +705,13 @@ def make_two_ind_U(n_orb,uijkl,verbose=False,U_elem=[True,True]):
                         if verbose:
                             print(ii, jj, kk, ll, uijkl[ii, jj, kk, ll], "Added to jij")
                         jij[ii, jj] = uijkl[ii, jj, kk, ll]
+
+                    # MALTE's modification
+                    elif ii == jj and kk == ll and U_elem[1]:  # Hunds: Uij,ji ... with pair hopping
+                        if verbose:
+                            print(ii, jj, kk, ll, uijkl[ii, jj, kk, ll], "Added to jij")
+                        jij[ii, jj] = uijkl[ii, jj, kk, ll]
+
                     else:
                         uijkl_avg[ii, jj, kk, ll] = 0.0
 
