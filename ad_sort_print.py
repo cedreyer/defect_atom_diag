@@ -17,6 +17,25 @@ from op_dipole import *
 # 09/10/19
 
 #*************************************************************************************
+# Print out information about the states
+def print_den_mat(state,den_mat):
+    '''
+    
+    '''
+    
+    with open('den_mat.dat.','a') as f:
+        f.write('state:',state)
+        for i in range(0,den_mat.shape[0]):
+            for j in range(0,den_mat.shape[1]):
+                f.write('%20.8e' % (den_mat[i,j]))
+            f.write('\n')
+
+    return
+
+    
+#*************************************************************************************
+
+#*************************************************************************************
 # Print out some properties of the ground state
 def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2_print=False):
     '''
@@ -96,7 +115,7 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
 
 #*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,target_mu=5):
+def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -127,6 +146,13 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
  
     n_orb=len(orb_names)
 
+
+    # For printing out the density matrix
+    if prt_dm:
+        with open('den_mat.dat','w') as f:
+            f.write('Density Matrices\n')
+            f.write('\n')
+    
     n_eigenvec=0.0
     eigensys=[]
     # Loop through subspaces
@@ -179,6 +205,17 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             if prt_mrchar:
                 den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,n_eigenvec)
                 eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real,multiref.real])
+
+                # Print out density matrix
+                if prt_dm:
+                    with open('den_mat.dat','a') as f:
+                        f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
+                        for i in range(0,den_mat.shape[0]):
+                            for j in range(0,den_mat.shape[1]):
+                                f.write('%10.4f' % (den_mat[i,j]))
+                            f.write('\n')
+                        f.write('\n')
+                        
             else:
                 eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real])
                 

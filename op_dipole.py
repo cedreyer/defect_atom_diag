@@ -106,8 +106,8 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
         
     # Get desired states in eigenvector basis
     state_eig = np.zeros((int(ad.full_hilbert_space_dim)))
-    state_eig[int(n_eig)]=1.0
-        
+    state_eig[int(n_eig)]=1.0        
+    
     # Construct density matrix
     den_mat=np.zeros((2*n_orb,2*n_orb))
     for s1 in range(0,2):
@@ -122,7 +122,11 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
                         
                     den_mat[xx,yy]=np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
 
+                    #print(s1,s2,ii,jj,den_mat[xx,yy])
+
     multiref=np.trace(den_mat-np.matmul(den_mat,den_mat))
+
+
     
     if verbose:
         print("state",n_eig)
