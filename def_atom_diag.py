@@ -84,10 +84,10 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in,step=0.5):
             H += mu * N
             
             # Split the Hilbert space automatically
-            #try:
-            #    ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
-            #except:
-            ad = AtomDiagComplex(H, fops) # No const occ for backwards compatability
+            try:
+                ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
+            except:
+                ad = AtomDiagComplex(H, fops) # No const occ for backwards compatability
                 
             beta = 1e5
             dm = atomic_density_matrix(ad, beta)
