@@ -921,7 +921,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
-                mb_char_spin = True,n_print = [0,42],verbose=False):
+                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -1086,6 +1086,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='prt_mrchar':
                 if val=='True' or val=='T' or val=='true':
                     prt_mrchar=True
+            elif var=='prt_dm':
+                if val=='True' or val=='T' or val=='true':
+                    prt_dm=True
 
             elif var=='n_print':
                 n_print[0]=int(val.split()[0].strip())
@@ -1222,7 +1225,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     # Get eigenstates sorted by energies
     if prt_eigensys:
         start = time.time()
-        eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,target_mu=mu_in['target_occ'])
+        eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'])
         end = time.time()
         print("Time to get eigenstates sorted by energies:",end-start)
 
