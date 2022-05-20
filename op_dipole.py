@@ -37,6 +37,7 @@ def check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10,verbose=Fa
     '''
 
     n_orb=len(orb_names)
+    n_spin=len(spin_names)
     den_mats=[]
     for state in range(0,n_states):
 
@@ -51,9 +52,9 @@ def check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10,verbose=Fa
         state_eig[int(n_eig)]=1.0
         
         # Construct density matrix
-        den_mat=np.zeros((2*n_orb,2*n_orb))
-        for s1 in range(0,2):
-            for s2 in range(0,2):
+        den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb))
+        for s1 in range(0,n_spin):
+            for s2 in range(0,n_spin):
                 for ii in range(0,n_orb):
                     for jj in range(0,n_orb):
                                 
@@ -103,15 +104,16 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
     '''
 
     n_orb=len(orb_names)
-        
+    n_spin=len(spin_names)
+    
     # Get desired states in eigenvector basis
     state_eig = np.zeros((int(ad.full_hilbert_space_dim)))
     state_eig[int(n_eig)]=1.0        
     
     # Construct density matrix
-    den_mat=np.zeros((2*n_orb,2*n_orb))
-    for s1 in range(0,2):
-        for s2 in range(0,2):
+    den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb))
+    for s1 in range(0,n_spin):
+        for s2 in range(0,n_spin):
             for ii in range(0,n_orb):
                 for jj in range(0,n_orb):
                         

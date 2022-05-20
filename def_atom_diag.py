@@ -427,8 +427,7 @@ def flip_u_index(n_orb,uijkl):
 # Double counting
 def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False):
     '''
-    Subtract double counting correction to the Hamiltonian. Very much
-    in the testing phase.
+    Subtract double counting correction to the Hamiltonian.
 
     Inputs:
     H: Hamiltonian operator
@@ -569,7 +568,22 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 #*************************************************************************************
 # Calculate the MF HF coulomb part and use it as DC
 def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
+    '''
+    Use TPRF to solve H with Hartree-Fock, to use the Coulomb interaction as a DC
+    
+    Inputs:
+    H: The Hamiltonian
+    spin_names: Spin names
+    orb_names: Orbital names
+    fops: Fundamental operators
+    int_in: Input parameters governing interaction
+    target_occ: Number of electrons
 
+    Outputs:
+    H: Hamiltonian with HF DC subtracted
+
+    '''
+    
     if not isinstance(orb_names[0], int):
         print('ERROR: Need to specify n_orb NOT orb_names in input file so names are integers for the HF solver!!')
         quit()
@@ -578,16 +592,9 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
                  [spin_names[1], len(orb_names)]]
     beta_temp=100.0
     n_orb=len(orb_names)
-
-    orbital_positions = [(0,0,0)]*n_orb*2
-
-    # No noninteracting part:
-    #units = parse_lattice_vectors_from_wannier90_wout('wannier90.wout')
-    #tbl=TBLattice(units=units,hopping={},orbital_positions=orbital_positions, orbital_names=[])
-    #h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
-
-    # Noninteracting part:
-    #hop, nb = parse_hopping_from_wannier90_hr_dat('wannier90_hr_full.dat')
+    n_spin=len(spin_names)
+    
+    orbital_positions = [(0,0,0)]*n_orb*n_spin
 
     # Use diagonal basis
     tij=int_in['tij']
@@ -600,20 +607,10 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
     hop={(0,0,0):h_loc}
 
     units = parse_lattice_vectors_from_wannier90_wout('wannier90.wout')
-
-    # TEST
-    #nms=['up','0','1','dn','0','1']
         
     tbl=TBLattice(units=units,hopping=hop,orbital_positions=orbital_positions)#, orbital_names=nms)
-    #h_k=tbl.on_mesh_brillouin_zone(n_k=(1,1,1))
-    #h_k=tbl.get_kmesh(n_k=(1,1,1))
-
     kmesh=tbl.get_kmesh(n_k=(1,1,1))
     h_k=tbl.fourier(kmesh)
-
-    #TEST
-    #print('ORB_NAMES',orb_names)
-    #quit()
     
     # Interaction part of H:
     H_int=Operator()
@@ -642,7 +639,23 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
 #*************************************************************************************
 # DC correction for cbcn using the "DFT" approach from Malte
 def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
+    '''
+    Dimer double counting from Malte and Van Loon
+    
+    Inputs:
+    H: The Hamiltonian
+    spin_names: Spin names
+    orb_names: Orbital names
+    fops: Fundamental operators
+    int_in: Input parameters governing interaction
+    mo_den: Density in the band basis
+    verbose: Output more to the terminal
 
+    Outputs:
+    H: Hamiltonian with dimer DC subtracted
+
+    '''
+    
     uijkl=int_in['uijkl']
     tij=int_in['tij']
     n_orb=len(orb_names)
@@ -659,11 +672,6 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
 
     # Assume that our basis is [[b*,0],[0,b]]
     tij_dc=np.array([[uijkl[1,0,1,0],0.0],[0.0,uijkl[1,1,1,1]]])
-
-    #tij[0,0]+=uijkl[1,0,1,0]
-    #tij[1,1]+=uijkl[1,1,1,1]
-
-    #print(uijkl[1,0,1,0],uijkl[1,1,1,1])
 
     # If in orbital basis, transform back
     if not int_in['diag_basis']:
@@ -689,6 +697,22 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
 #*************************************************************************************
 # Average U values
 def make_two_ind_U(n_orb,uijkl,verbose=False,U_elem=[True,True]):
+    '''
+    Reduce full interaction to two index.
+
+    Inputs:
+    n_orb: Number of orbitals
+    uijkl: Full interaction tensor
+    verbose: Write out more to the terminal
+    U_elem: Whether to include U and J
+
+    Outputs:
+    uij: Two index direct interaction
+    jij: Two index exchange
+    uijkl_avg: Interaction with just uij and jij elements
+    
+    '''
+    
     uij = np.zeros((n_orb, n_orb))
     jij = np.zeros((n_orb, n_orb))
     uijkl_avg = uijkl
@@ -794,7 +818,11 @@ def effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False,U_elem=[True,Tru
 #*************************************************************************************
 # Average U values
 def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
+    '''
+    
 
+    '''
+    
     Uavg=0.0
     Uprime=0.0
     Javg=0.0
@@ -1114,6 +1142,12 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 
         in_file.close()
 
+
+    # Not sure where to put this, make sure that prt_mrchar=True for prt_dm
+    if prt_dm and not prt_mrchar:
+        print('WARNING: Density matrix will only print if prt_mrchar = True')
+
+    
     # Setup the operators
     n_orb=len(orb_names)
     fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
