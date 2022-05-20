@@ -126,7 +126,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     Sz_states = quantum_number_eigenvalues(Sz, ad)
  
     n_orb=len(orb_names)
-
+    n_spin=len(spin_names)
 
     # For printing out the density matrix
     if prt_dm:
@@ -153,7 +153,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
                 skip_sub=True                
                 break
                 
-            state_leng=n_orb*2
+            state_leng=n_orb*n_spin
             fmt='{0:0'+str(state_leng)+'d}'
             state_bin="|"+fmt.format(state)+">"
             state_bin_sym=sp.symbols(state_bin)
