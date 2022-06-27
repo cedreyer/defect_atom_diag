@@ -479,8 +479,10 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
         #quit()
         
         # Convert to wannier basis
-        wan_den=np.dot(np.dot(np.linalg.inv(evecs.T),mo_den),np.linalg.inv(evecs))
-
+        #wan_den=np.dot(np.dot(np.linalg.inv(evecs.T),mo_den),np.linalg.inv(evecs))
+        evecs=np.matrix(evecs)
+        wan_den=np.dot(np.dot(np.linalg.inv(evecs.H),mo_den),np.linalg.inv(evecs)) 
+        
     # Mixing of exchange part
     print("DC mix:",dc_x_wt)
 
@@ -517,12 +519,11 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                         fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
 
                         #TEST
-                        #print('FACTOR OF 1/2')
-                        
+                        # STILL TESTING FOR CMPLX
                         # TEST: See what terms are included
-                        #if verbose:
-                        #    if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.0001:
-                        #        print(s,i,j,k,l,uijkl[i,l,j,k]-dc_x_wt*uijkl[i,l,k,j]* wan_den[k,l])
+                        if verbose:
+                            if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.00001:
+                                print(s,i,j,k,l,uijkl[i,l,j,k]-dc_x_wt*uijkl[i,l,k,j]* wan_den[k,l])
 
                 # For both integer and string orbital names
                 if isinstance(orb_names[0], int):
@@ -531,7 +532,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
                     H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
 
                 if verbose:
-                    if abs(fock) > 1.0e-4:
+                    if abs(fock) > 1.0e-1:
                                 print(s,i,j,-fock)
 
     # From Karsten and Flensberg Eq. 4.22 and 4.23
@@ -549,10 +550,10 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 
     H += H_dc
 
-    if verbose:
+    #if verbose:
         #print("DC:")
-        print(H_dc)
-        print('')
+    #    print(H_dc)
+    #    print('')
         
         #for ii in range(0,n_orb):
         #    for jj in range(0,n_orb):
