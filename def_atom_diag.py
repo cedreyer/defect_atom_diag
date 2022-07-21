@@ -945,12 +945,12 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
 
 #*************************************************************************************
 # Read in the input file
-def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
+def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
-                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False):
+                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12]):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -1023,6 +1023,8 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 vijkl_file=val
             elif var=='wan_file':
                 wan_file=val
+            elif var=='dipol_file':
+                dipol_file=val
             elif var=='dft_den_file':
                 dft_den_file=val
 
@@ -1137,6 +1139,16 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='True' or val=='T' or val=='true':
                     verbose=True
 
+            # For dipole calculations
+            elif var=='prt_dipol':
+                if val=='True' or val=='T' or val=='true':
+                    prt_dipol=True
+                    
+            elif var=='n_dipol':
+                n_dipol[0]=int(val.split()[0].strip())
+                n_dipol[1]=int(val.split()[1].strip())
+                    
+            # UNKNOWN PARAMETER
             else:
                 print('ERROR: Unknown input parameter:',var)
                 quit()
@@ -1285,14 +1297,14 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         print("Time to print out characters of degeneracies:",end-start)
 
 
-
-    # TEST: Check multi-reference
-    #check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10)
-
     # TEST: Dipole matrix elements
-#    for ii in range(0,12):
-#        for jj in range(ii,12):
-#            dipole_op(ad,spin_names,orb_names,fops,"wannier90_r.dat",ii,jj,eigensys)
+    if prt_dipol:
+        with open(out_label+"rij.dat","w") as rf:
+            rf.write('# state 1  state 2  dir  dipole (real)  dipole (imag) \n')
+            
+        for ii in range(n_dipol[0],n_dipol[1]+1):
+            for jj in range(ii,n_dipol[1]+1):
+                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label)
 
 
 
