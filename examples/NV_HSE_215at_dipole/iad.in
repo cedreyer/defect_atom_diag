@@ -1,0 +1,37 @@
+# For now, need to have spaces around the '='
+
+# Input files
+uijkl_file = UIJKL
+wan_file = wannier90_hr.dat
+dipol_file = wannier90_r.dat
+dft_den_file = den.dat
+
+# Operators
+spin_names = up dn
+orb_names = 0 1 2 3
+
+# Parts of the Hamiltonian
+Hkin = True
+Hint = True
+Hdc = True
+
+# Interaction parameters
+int_opt = 0
+flip = True
+dc_opt = 0
+dc_x_wt = 0.25
+
+# Chemical potential etc.
+const_occ = True
+mu_init = -12.5
+target_occ = 6.0
+
+# Options for printing
+prt_energy = True
+prt_eigensys = True
+prt_state = True
+n_print = 0 20
+
+# Dipole
+prt_dipol = True
+n_dipol = 0 20

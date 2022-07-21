@@ -177,7 +177,7 @@ def read_rij(r_wan_file,n_orb):
 
 #*************************************************************************************
 # Calculate dipole matrix elements
-def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,verbose=False):
+def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,verbose=False):
     '''
     Get the dipole matrix elements between many-body state n_state_l
     and n_state_r
@@ -232,7 +232,7 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
 
 
     # Write out to file (State l, state r, direction)
-    with open("rij.dat","a") as rf: 
+    with open(out_label+"rij.dat","a") as rf: 
         rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1, \
                                         np.dot(state_l,act(r_op[0],state_r,ad)).real,\
                                         np.dot(state_l,act(r_op[0],state_r,ad)).imag))
