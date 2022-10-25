@@ -172,6 +172,10 @@ def read_rij(r_wan_file,n_orb):
         
     r_file.close()
 
+    # I think we should make sure that diagonal elements are zero. Thus, we are shifting
+    for orb in range(n_orb):
+        rij[:,orb,orb]=0.0
+    
     return rij
 
 
