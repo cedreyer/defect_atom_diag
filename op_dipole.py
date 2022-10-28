@@ -176,8 +176,6 @@ def read_rij(r_wan_file,n_orb,lat_param):
     # I think we should make sure that diagonal elements are zero. Thus, we are shifting
     for orb in range(n_orb):
         for idir in range(3):
-            # TEST
-            print(rij[idir,orb,orb],np.mod(lat_param[idir], rij[idir,orb,orb]))
             rij[idir,orb,orb]=np.mod(lat_param[idir], rij[idir,orb,orb])
             
     return rij
