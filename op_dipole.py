@@ -149,13 +149,14 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
 
 #*************************************************************************************
 # Read in wannier90_r file
-def read_rij(r_wan_file,n_orb):
+def read_rij(r_wan_file,n_orb,lat_param):
     '''
     Read in the dipole matrix elements for single particle basis
     
     Inputs:
     r_wan_file: wannier90_r file
     n_orb: Number of orbitals
+    lat_param: Lattice parameters of the cell
 
     Outputs:
     rij: Array with dipole matrix elements
@@ -174,14 +175,17 @@ def read_rij(r_wan_file,n_orb):
 
     # I think we should make sure that diagonal elements are zero. Thus, we are shifting
     for orb in range(n_orb):
-        rij[:,orb,orb]=0.0
-    
+        for idir in range(3):
+            # TEST
+            print(rij[idir,orb,orb],np.mod(lat_param[idir], rij[idir,orb,orb]))
+            rij[idir,orb,orb]=np.mod(lat_param[idir], rij[idir,orb,orb])
+            
     return rij
 
 
 #*************************************************************************************
 # Calculate dipole matrix elements
-def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,verbose=False):
+def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,lat_param,verbose=False):
     '''
     Get the dipole matrix elements between many-body state n_state_l
     and n_state_r
@@ -195,6 +199,7 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
     n_state_l: MB state on the left
     n_state_r: MB state on the right
     eigensys: Eigenstates
+    lat_param: lattice parameters of the cell
     verbose: Write stuff to the termial?
 
     Outputs:
@@ -203,7 +208,7 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
     '''
 
     n_orb=len(orb_names) 
-    rij=read_rij(r_wan_file,n_orb) # read in wannier90_r
+    rij=read_rij(r_wan_file,n_orb,lat_param) # read in wannier90_r
 
     # Contsruct MB dipole operator
     r_op=[Operator(),Operator(),Operator()]
