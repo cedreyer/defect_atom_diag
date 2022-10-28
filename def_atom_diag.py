@@ -945,7 +945,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
 
 #*************************************************************************************
 # Read in the input file
-def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4], \
+def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
@@ -1147,7 +1147,13 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='n_dipol':
                 n_dipol[0]=int(val.split()[0].strip())
                 n_dipol[1]=int(val.split()[1].strip())
-                    
+
+            elif var=='lat_param':
+                lat_param[0]=float(val.split()[0].strip())
+                lat_param[1]=float(val.split()[1].strip())
+                lat_param[2]=float(val.split()[2].strip())
+                
+                
             # UNKNOWN PARAMETER
             else:
                 print('ERROR: Unknown input parameter:',var)
@@ -1304,7 +1310,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             
         for ii in range(n_dipol[0],n_dipol[1]+1):
             for jj in range(ii,n_dipol[1]+1):
-                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label)
+                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label,lat_param)
 
 
 
