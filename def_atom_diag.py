@@ -1310,7 +1310,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             
         for ii in range(n_dipol[0],n_dipol[1]+1):
             for jj in range(ii,n_dipol[1]+1):
-                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label,lat_param)
+                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label,lat_param,tij)
 
 
 

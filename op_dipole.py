@@ -183,7 +183,7 @@ def read_rij(r_wan_file,n_orb,lat_param):
 
 #*************************************************************************************
 # Calculate dipole matrix elements
-def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,lat_param,verbose=False):
+def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,lat_param,tij,verbose=False,velocity=True):
     '''
     Get the dipole matrix elements between many-body state n_state_l
     and n_state_r
@@ -198,7 +198,9 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
     n_state_r: MB state on the right
     eigensys: Eigenstates
     lat_param: lattice parameters of the cell
+    tij: hopping matrix elements
     verbose: Write stuff to the termial?
+    velocity: Calculate the velocity operator
 
     Outputs:
     None.
@@ -210,12 +212,25 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
 
     # Contsruct MB dipole operator
     r_op=[Operator(),Operator(),Operator()]
-    for s in spin_names:
-        for o1 in orb_names:
-            for o2 in orb_names:
-                for x in range(0,3):
-                    r_op[x] += rij[x][int(o1)][int(o2)] * c_dag(s,o1) * c(s,o2)
-    
+
+    if velocity:
+        for s in spin_names:
+            for i,o1 in enumerate(orb_names):
+                for j,o2 in enumerate(orb_names):
+                    for x in range(0,3):
+                        p_ij=0.0
+                        for k,o3 in enumerate(orb_names):
+                            p_ij+=tij[i,k]*rij[x][k][j]-tij[j,k]*rij[x][k][i]
+                        
+                        r_op[x] += p_ij * c_dag(s,o1) * c(s,o2)
+        
+    else:
+        for s in spin_names:
+            for o1 in orb_names:
+                for o2 in orb_names:
+                    for x in range(0,3):
+                        r_op[x] += rij[x][int(o1)][int(o2)] * c_dag(s,o1) * c(s,o2)
+                    
 
     # Convert from states in energy order to those in Hilbert space
     l_hs=int(eigensys[n_state_l][3])
