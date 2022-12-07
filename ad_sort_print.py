@@ -43,10 +43,16 @@ def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2
 
     # Angular momentum
     if s2_print:
-        S2=S2_op(spin_names,orb_names,off_diag=True)
+        try:
+            S2=S2_op(spin_names,len(orb_names),off_diag=True)
+        except:
+            S2=S2_op(spin_names,orb_names,off_diag=True)
         print("s(s+1) = ",trace_rho_op(dm, S2, ad))
     if l2_print:
-        L2=L2_op(spin_names,orb_names,off_diag=True)
+        try:
+            L2=L2_op(spin_names,len(orb_names),off_diag=True)
+        except:
+            L2=L2_op(spin_names,orb_names,off_diag=True)
         print("l(l+1) = ",trace_rho_op(dm, L2, ad))
 
     return
@@ -116,12 +122,17 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     '''
 
     # Get spin eigenvalues, may be useful
-    S2 = S2_op(spin_names, orb_names, off_diag=True)
-    S2 = make_operator_real(S2)
-    Sz=S_op('z', spin_names, orb_names, off_diag=True)
+    try:
+        S2 = S2_op(spin_names, len(orb_names), off_diag=True)
+        S2 = make_operator_real(S2)
+        Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
+    except:
+        S2 = S2_op(spin_names, orb_names, off_diag=True)
+        S2 = make_operator_real(S2)
+        Sz=S_op('z', spin_names, orb_names, off_diag=True)
+        
     Sz = make_operator_real(Sz)
-    
-    
+
     S2_states = quantum_number_eigenvalues(S2, ad)
     Sz_states = quantum_number_eigenvalues(Sz, ad)
  

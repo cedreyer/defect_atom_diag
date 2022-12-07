@@ -223,7 +223,8 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
                             p_ij+=tij[i,k]*rij[x][k][j]-tij[j,k]*rij[x][k][i]
                         
                         r_op[x] += p_ij * c_dag(s,o1) * c(s,o2)
-        
+                        print(i,j,p_ij)
+                        
     else:
         for s in spin_names:
             for o1 in orb_names:

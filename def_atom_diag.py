@@ -74,8 +74,13 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
 
     # Constrained occupation:
     if const_occ:
+        #print(fops)
+        #print(H)
         ad = AtomDiagComplex(H, fops, n_min=int(target_occ), n_max=int(target_occ))
+        #raise
 
+        
+        
     # Tune the chemical potential to get desired occupancy, solve the
     # atomic problem
     elif tune_occ:
@@ -240,8 +245,12 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
         check_sym_u_mat(uijkl,n_orb)
 
     # Add the interactions
-    H_int = h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
-
+    # For backwards compatibility, use either number of orbitals or list
+    try:
+        H_int = h_int_slater(spin_names, len(orb_names), uijkl, off_diag=True,complex=True)
+    except:
+        H_int = h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
+        
     if verbose:
         print('')
         print("Interaction:")
@@ -1036,15 +1045,11 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='orb_names':
                 orb_names=[]
                 for names in line.split()[2:]:
-                    orb_names.append(names)
+                    orb_names.append(int(names))
             elif var=='n_orbs':
                 orb_names=[]
                 for i in range(0,int(val)):
                     orb_names.append(i)
-                # TEST: convert to int
-                #orb_names=list(map(int,orb_names))
-                #print('ORB',orb_names)
-                #quit()
 
             # Parts of the Hamiltonian
             elif var=='Hkin':
