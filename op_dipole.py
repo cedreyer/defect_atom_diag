@@ -182,33 +182,28 @@ def read_rij(r_wan_file,n_orb,lat_param):
 
 
 #*************************************************************************************
-# Calculate dipole matrix elements
-def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigensys,out_label,lat_param,tij,verbose=False,velocity=True):
+# Hake the dipole operator
+def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,velocity=False):
     '''
-    Get the dipole matrix elements between many-body state n_state_l
-    and n_state_r
+    Make the many-body dipole operator
 
     Inputs:
     ad: Solution to atomic problem
     spin_names: List of spins
     orb_names: Orbital names
     fops: Many-body operators
-    r_wan_file: wannier90_r file
-    n_state_l: MB state on the left
-    n_state_r: MB state on the right
-    eigensys: Eigenstates
-    lat_param: lattice parameters of the cell
+    dipol_file: wannier90_r file
     tij: hopping matrix elements
-    verbose: Write stuff to the termial?
+    lat_param: lattice parameters of the cell
     velocity: Calculate the velocity operator
 
     Outputs:
-    None.
+    r_op: Many body dipole/velocity operator in directions x,y,z
 
     '''
 
     n_orb=len(orb_names) 
-    rij=read_rij(r_wan_file,n_orb,lat_param) # read in wannier90_r
+    rij=read_rij(dipol_file,n_orb,lat_param) # read in wannier90_r
 
     # Contsruct MB dipole operator
     r_op=[Operator(),Operator(),Operator()]
@@ -223,7 +218,7 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
                             p_ij+=tij[i,k]*rij[x][k][j]-tij[j,k]*rij[x][k][i]
                         
                         r_op[x] += p_ij * c_dag(s,o1) * c(s,o2)
-                        print(i,j,p_ij)
+                        print('velocity',i,j,p_ij)
                         
     else:
         for s in spin_names:
@@ -231,7 +226,28 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
                 for o2 in orb_names:
                     for x in range(0,3):
                         r_op[x] += rij[x][int(o1)][int(o2)] * c_dag(s,o1) * c(s,o2)
-                    
+
+    return r_op
+                        
+#*************************************************************************************
+# Calculate dipole matrix elements between states
+def apply_dipole_op(r_op,ad,n_state_l,n_state_r,eigensys,verbose=False):
+    '''
+    Get the dipole matrix elements between many-body state n_state_l
+    and n_state_r
+
+    Inputs:
+    r_op: Dipole/velocity operator
+    ad: Solution to atomic problem
+    n_state_l: MB state on the left
+    n_state_r: MB state on the right
+    eigensys: Eigenstates
+    verbose: print stuff or not 
+
+    Outputs:
+    Rij: Dipole matrix elements between many-body states
+
+    '''                    
 
     # Convert from states in energy order to those in Hilbert space
     l_hs=int(eigensys[n_state_l][3])
@@ -246,32 +262,68 @@ def dipole_op(ad,spin_names,orb_names,fops,r_wan_file,n_state_l,n_state_r,eigens
 
     # Apply dipole operator to state_r and print out
 
+    Rij=np.zeros(3,dtype='complex128')
+    for direc in range(3):
+        Rij[direc]=np.dot(state_l,act(r_op[direc],state_r,ad))
+
+    
     if verbose:
         print ("HS l: ",l_hs," HS r: ",r_hs )
-        print ("<",n_state_l,"|r_x|",n_state_r,"> = ",np.dot(state_l,act(r_op[0],state_r,ad)))
-        print ("<",n_state_l,"|r_y|",n_state_r,"> = ",np.dot(state_l,act(r_op[1],state_r,ad)))
-        print ("<",n_state_l,"|r_z|",n_state_r,"> = ",np.dot(state_l,act(r_op[2],state_r,ad)))
-        print (" ")
+        #print ("<",n_state_l,"|r_x|",n_state_r,"> = ",Rij[0])
+        #print ("<",n_state_l,"|r_y|",n_state_r,"> = ",Rij[1])
+        #print ("<",n_state_l,"|r_z|",n_state_r,"> = ",Rij[2])
+        #print (" ")
+
+        #opp=Operator()
+        #opp=1
+        #print ("<",n_state_l,"|",n_state_r,"> = ",np.dot(state_l,act(opp,state_r)
+        #print (" ")
+
+    return Rij
 
 
-    # Write out to file (State l, state r, direction)
-    with open(out_label+"rij.dat","a") as rf: 
-        rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1, \
-                                        np.dot(state_l,act(r_op[0],state_r,ad)).real,\
-                                        np.dot(state_l,act(r_op[0],state_r,ad)).imag))
+#*************************************************************************************
+# Print the dipole matricies
+def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij):
 
-        rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,2, \
-                                        np.dot(state_l,act(r_op[1],state_r,ad)).real,\
-                                        np.dot(state_l,act(r_op[1],state_r,ad)).imag))
+    '''
+    Print dipole/velocity matrix elements
 
-        rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,3, \
-                                        np.dot(state_l,act(r_op[2],state_r,ad)).real,\
-                                        np.dot(state_l,act(r_op[2],state_r,ad)).imag))
+    Inputs:
+    n_dipol: Min and max index of many-body states to include in dipole calculations
+    ad: Solution to atomic problem
+    spin_names: List of spins
+    orb_names: Orbital names
+    fops: Many-body operators
+    dipol_file: wannier90_r file
+    eigensys: Eigenstates
+    lat_param: lattice parameters of the cell
+    tij: hopping matrix elements
 
+    Outputs:
+    None.
+
+    '''
+
+    # Make the dipole operator
+    r_op=make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param)
+    
+    with open(out_label+"rij.dat","w") as rf:
+        rf.write('# state 1  state 2  dir  dipole (real)  dipole (imag) \n')
+
+        for n_state_l in range(n_dipol[0],n_dipol[1]+1):
+            for n_state_r in range(n_state_l,n_dipol[1]+1):
+
+                Rij=apply_dipole_op(r_op,ad,n_state_l,n_state_r,eigensys)
+                
+                # Write out to file (State l, state r, direction)
+                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[0].real,Rij[0].imag))
+                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[1].real,Rij[1].imag))
+                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[2].real,Rij[2].imag))
     return
 
 #*************************************************************************************
-# Get the symmeetry eigenvalue of a state
+# Get the symmetry eigenvalue of a state
 def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     '''
     Get symmetry character for given symmetry operation. First we

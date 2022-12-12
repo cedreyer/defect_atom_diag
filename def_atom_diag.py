@@ -1310,12 +1310,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     # TEST: Dipole matrix elements
     if prt_dipol:
-        with open(out_label+"rij.dat","w") as rf:
-            rf.write('# state 1  state 2  dir  dipole (real)  dipole (imag) \n')
-            
-        for ii in range(n_dipol[0],n_dipol[1]+1):
-            for jj in range(ii,n_dipol[1]+1):
-                dipole_op(ad,spin_names,orb_names,fops,dipol_file,ii,jj,eigensys,out_label,lat_param,tij)
+        print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij)
 
 
 
