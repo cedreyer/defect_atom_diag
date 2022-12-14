@@ -122,7 +122,7 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file):
     print('# of e-: ', filling)
 
 
-    return ad,dm,N
+    return ad,dm
 #*************************************************************************************
 
 #*************************************************************************************
@@ -1342,9 +1342,13 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     # TEST: Dipole matrix elements
     if prt_dipol:
+        start = time.time()
         print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij)
+        end = time.time()
+        print("Time to print dipol matri elements:",end-start)
 
-
+    print('')
+    print('Calculation completed.')
 
 
     return eigensys,ad,fops
