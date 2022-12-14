@@ -176,7 +176,9 @@ def read_rij(r_wan_file,n_orb,lat_param):
     # I think we should make sure that diagonal elements are zero. Thus, we are shifting
     for orb in range(n_orb):
         for idir in range(3):
-            rij[idir,orb,orb]=np.mod(lat_param[idir], rij[idir,orb,orb])
+            rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])
+
+            #print('rii',orb,idir,lat_param[idir], rij[idir,orb,orb])
             
     return rij
 
@@ -317,9 +319,9 @@ def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,ou
                 Rij=apply_dipole_op(r_op,ad,n_state_l,n_state_r,eigensys)
                 
                 # Write out to file (State l, state r, direction)
-                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[0].real,Rij[0].imag))
-                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[1].real,Rij[1].imag))
-                rf.write('%f %f %f %f %f\n' % (n_state_l,n_state_r,1,Rij[2].real,Rij[2].imag))
+                rf.write('%f %f %f %E %E\n' % (n_state_l,n_state_r,1,Rij[0].real,Rij[0].imag))
+                rf.write('%f %f %f %E %E\n' % (n_state_l,n_state_r,2,Rij[1].real,Rij[1].imag))
+                rf.write('%f %f %f %E %E\n' % (n_state_l,n_state_r,3,Rij[2].real,Rij[2].imag))
     return
 
 #*************************************************************************************

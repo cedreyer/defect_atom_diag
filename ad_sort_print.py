@@ -7,6 +7,8 @@ from triqs.gf import *
 from triqs.atom_diag import *
 from itertools import product
 
+from h5 import HDFArchive
+
 import numpy as np
 import sympy as sp
 
@@ -101,8 +103,30 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
 #*************************************************************************************
 
 #*************************************************************************************
+# Save atom_diag object
+def prt_at_diag(ad,out_label):
+    '''
+    Save the atom diag object
+
+    Inputs:
+    ad: AtomDiag object
+    out_label: label for output file
+
+    Outputs:
+    None
+
+    '''
+
+    with HDFArchive(out_label+'ad.h5') as ar:
+        ar['ad'] = ad
+
+    return
+
+#*************************************************************************************
+
+#*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5):
+def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -115,6 +139,9 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     prt_state: Whether to print to eigensys file
     target_mu: Only keep states with a given occupation
     out_label: To label the output files for multiple runs
+    prt_mrchar: Print multiref character
+    prt_dm: Print 1rdm
+    prt_ad: Print AtomDiag object
 
     Outputs:
     eigensys: List containing states, energies, and other info
@@ -139,6 +166,11 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     n_orb=len(orb_names)
     n_spin=len(spin_names)
 
+    # Save the AtomDiag object
+    if prt_ad:
+        prt_at_diag(ad,out_label)
+
+    
     # For printing out the density matrix
     if prt_dm:
         with open(out_label+'den_mat.dat','w') as f:
