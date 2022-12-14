@@ -7,6 +7,8 @@ from triqs.gf import *
 from triqs.atom_diag import *
 from itertools import product
 
+from h5 import HDFArchive
+
 import numpy as np
 import sympy as sp
 import math
@@ -31,7 +33,7 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
-def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
+def solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file):
     '''
     Solve the atomic problem and tune the chemical potential to the
     target filling. Very inefficient way of doing it but works for now.
@@ -42,6 +44,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
     orb_names: List of orbitals
     fops: Many-body operators
     mu_in: Dictionary for chem pot options
+    ad_file: file for the AtomDiag object
 
     Outputs:
     H: Hamiltonian with chemical potential term added
@@ -74,10 +77,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
 
     # Constrained occupation:
     if const_occ:
-        #print(fops)
-        #print(H)
         ad = AtomDiagComplex(H, fops, n_min=int(target_occ), n_max=int(target_occ))
-        #raise
 
         
         
@@ -122,7 +122,7 @@ def add_chem_pot(H,spin_names,orb_names,fops,mu_in):
     print('# of e-: ', filling)
 
 
-    return H,ad,dm,N
+    return ad,dm,N
 #*************************************************************************************
 
 #*************************************************************************************
@@ -903,7 +903,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
 #*************************************************************************************
 # Setup the Hamiltonian
-def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
+def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den=[]):
     '''
     Add terms to the Hamiltonian depending on the input file.
 
@@ -914,6 +914,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     comp_H: List of components of the Hamiltonian
     int_in: Input parameters
     verbose: Print out parts of H
+    ad_file: file for the AtomDiag object 
     mo_den: Occupation in the band basis
 
     Outputs:
@@ -922,43 +923,69 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     dm: Density matrix
     N: Number operator
     '''
-
-    # Setup the Hamiltonian
-    H=Operator()
-
-    # kinetic
-    if comp_H['Hkin']:
-
-        H = add_hopping(H,spin_names,orb_names,int_in,verbose=verbose)
     
-    # Double counting
-    if comp_H['Hdc']:
+    # Read in AtomDiag object 
+    if ad_file:
+        print('Reading ad file:',ad_file+'.h5')
+        ad = read_at_diag(ad_file+'.h5')
+        beta = 1e10
+        dm = atomic_density_matrix(ad, beta)
+        
+    # Setup the Hamiltonian
+    else:
+        H=Operator()
+    
+        # kinetic
+        if comp_H['Hkin']:
 
-        if int_in['dc_typ']==0:
-            H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
-        elif int_in['dc_typ']==1:
-            H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
-        elif int_in['dc_typ']==2:
-            H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
+            H = add_hopping(H,spin_names,orb_names,int_in,verbose=verbose)
+        
+            # Double counting
+            if comp_H['Hdc']:
+
+                if int_in['dc_typ']==0:
+                    H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
+                elif int_in['dc_typ']==1:
+                    H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
+                elif int_in['dc_typ']==2:
+                    H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
             
-    # Interaction
-    if comp_H['Hint']:
-        H = add_interaction(H,1,spin_names,orb_names,fops,int_in,verbose=verbose)
+            # Interaction
+            if comp_H['Hint']:
+                H = add_interaction(H,1,spin_names,orb_names,fops,int_in,verbose=verbose)
 
-    # Chemical potential
-    H,ad,dm,N = add_chem_pot(H,spin_names,orb_names,fops,mu_in)
+        # Solve atomic problem
+        ad,dm = solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file)
 
 
-    return H,ad,dm,N
+    return ad,dm
 #*************************************************************************************
+
+#*************************************************************************************
+# Read in atom_diag object
+def read_at_diag(ad_file):
+    '''
+    Save the atom diag object
+
+    Inputs:
+    ad_file: label for saved ad file
+
+    Outputs:
+    ad: AtomDiag object read in
+
+    '''
+    with HDFArchive(ad_file,'r') as ar:
+        ad=ar['ad']
+
+    return ad
 
 #*************************************************************************************
 # Read in the input file
-def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
+def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
-                prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False,\
+                prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,\
                 mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12]):
 
     '''
@@ -1036,6 +1063,8 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 dipol_file=val
             elif var=='dft_den_file':
                 dft_den_file=val
+            elif var=='ad_file':
+                ad_file=val
 
             # Operators
             elif var=='spin_names':
@@ -1140,6 +1169,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='False' or val=='F' or val=='false':
                     mb_char_spin=False
 
+            elif var=='prt_ad':
+                if val=='True' or val=='T' or val=='true':
+                    prt_ad=val
+                    
             elif var=='verbose':
                 if val=='True' or val=='T' or val=='true':
                     verbose=True
@@ -1157,7 +1190,6 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 lat_param[0]=float(val.split()[0].strip())
                 lat_param[1]=float(val.split()[1].strip())
                 lat_param[2]=float(val.split()[2].strip())
-                
                 
             # UNKNOWN PARAMETER
             else:
@@ -1275,7 +1307,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
     # Setup and solve the Hamiltonian
     start = time.time()
-    H,ad,dm,N=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=mo_den)
+    ad,dm=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den=mo_den)
     end = time.time()
     print("Time to setup and solve H:",end-start)
 
@@ -1286,7 +1318,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     # Get eigenstates sorted by energies
     if prt_eigensys:
         start = time.time()
-        eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'])
+        eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'],prt_ad=prt_ad)
         end = time.time()
         print("Time to get eigenstates sorted by energies:",end-start)
 
