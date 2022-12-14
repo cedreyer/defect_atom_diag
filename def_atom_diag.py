@@ -1171,7 +1171,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
             elif var=='prt_ad':
                 if val=='True' or val=='T' or val=='true':
-                    prt_ad=val
+                    prt_ad=True
                     
             elif var=='verbose':
                 if val=='True' or val=='T' or val=='true':
