@@ -4,3 +4,5 @@ find_byte.py
 tst
 run_at_diag.sh
 key
+examples/CBCN_mb_plot/
+examples/NV_HSE_215_mb_plot/
