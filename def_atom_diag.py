@@ -981,12 +981,13 @@ def read_at_diag(ad_file):
 
 #*************************************************************************************
 # Read in the input file
-def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
+def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',wf_files='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,\
-                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12]):
+                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12],prt_mbwfs=False, \
+                n_mbwfs=[0,2]):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -1065,15 +1066,19 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 dft_den_file=val
             elif var=='ad_file':
                 ad_file=val
+            elif var=='wf_files':
+                wf_files=[]
+                for files in str(val).split():
+                    wf_files.append(files)
 
             # Operators
             elif var=='spin_names':
                 spin_names=[]
-                for names in line.split()[2:]:
+                for names in str(val).split():
                     spin_names.append(names)
             elif var=='orb_names':
                 orb_names=[]
-                for names in line.split()[2:]:
+                for names in str(val).split():
                     orb_names.append(int(names))
             elif var=='n_orbs':
                 orb_names=[]
@@ -1190,6 +1195,15 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 lat_param[0]=float(val.split()[0].strip())
                 lat_param[1]=float(val.split()[1].strip())
                 lat_param[2]=float(val.split()[2].strip())
+
+            # For real-space MB wavefunctions
+            elif var=='prt_mbwfs':
+                if val=='True' or val=='T' or val=='true':
+                    prt_mbwfs=True
+            elif var=='n_mbwfs':
+                n_mbwfs[0]=int(val.split()[0].strip())
+                n_mbwfs[1]=int(val.split()[1].strip())
+
                 
             # UNKNOWN PARAMETER
             else:
@@ -1197,11 +1211,6 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 quit()
                 
         in_file.close()
-
-
-    # Not sure where to put this, make sure that prt_mrchar=True for prt_dm
-    if prt_dm and not prt_mrchar:
-        print('WARNING: Density matrix will only print if prt_mrchar = True')
 
     
     # Setup the operators
@@ -1340,16 +1349,25 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         print("Time to print out characters of degeneracies:",end-start)
 
 
-    # TEST: Dipole matrix elements
+    # Print Dipole matrix elements
     if prt_dipol:
         start = time.time()
         print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij)
         end = time.time()
-        print("Time to print dipol matri elements:",end-start)
+        print("Time to print dipole matrix elements:",end-start)
 
+    # Print out real-space MB wavefunctions
+    if prt_mbwfs:
+        start = time.time()
+        print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label)#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False,verbose=True):
+        end = time.time()
+        print("Time to print many-body wavefunctions:",end-start)
+
+        
     print('')
-    print('Calculation completed.')
-
+    print('Calculation completed.')        
+    
+    
 
     return eigensys,ad,fops
 #*************************************************************************************
