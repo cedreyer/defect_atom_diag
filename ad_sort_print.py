@@ -13,6 +13,7 @@ import numpy as np
 import sympy as sp
 
 from op_dipole import * 
+from apply_sym_wan import *
 
 # Tools for sorting and printing the output of atom diag
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
@@ -125,6 +126,86 @@ def prt_at_diag(ad,out_label):
 #*************************************************************************************
 
 #*************************************************************************************
+# Create many-body wavefunctions for plotting/visualization. Based off of code from Gabriel
+def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label):#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False,verbose=True):
+
+    '''
+    '''
+
+    n_spin=len(spin_names)
+    n_orb=len(orb_names)
+    
+    # Determine file type and read them in. Ordering should be the same as in the code
+    if '.xsf' in wf_files[0]:
+        file_type='xsf'
+        wanns, delr, n_mesh, header=load_xsf_files(wf_files,flip_xz=False)
+
+    elif '.cube' in wf_files[0]:
+        file_type='cube'
+        wanns, delr, n_mesh, header=load_xsf_files(wf_files)
+    else:
+        print('INVALID FILE FOR REAL SPACE WFs!')
+        raise
+    
+    # Get the density matrix
+    den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=n_mbwfs)
+
+    mb_wfs=[]
+    for iden_mat,den_mat in enumerate(den_mats):
+
+        occs=np.diag(den_mat)
+        
+        mb_wf_spins=[]
+        mb_wf_tot=np.zeros([n_mesh[0],n_mesh[1],n_mesh[2]])
+
+        # For now spinless Wannier functions
+        for ispin in range(0,n_spin):
+            mb_wf_spin=np.zeros([n_mesh[0],n_mesh[1],n_mesh[2]])
+            for iorb in range(0,n_orb):
+                mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb]
+                mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb]
+
+            # Print out real space MB wavefunctions for given spin
+            out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spin_'+str(ispin)+'.'+file_type
+            if out_label:
+                out_file_name+=out_label+'_'
+
+            write_wann(out_file_name,mb_wf_spin,n_mesh,header)
+            print('Wrote mbwf '+str(iden_mat+n_mbwfs[0])+' for spin '+str(ispin))
+                
+            mb_wf_spins.append(mb_wf_spin)
+                      
+        # Print out total real space MB wavefunction
+        out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_tot'+'.'+file_type
+        if out_label:
+            out_file_name+=out_label+'_'
+
+        write_wann(out_file_name,mb_wf_tot,n_mesh,header)
+        print('Wrote total mbwf '+str(iden_mat+n_mbwfs[0]))
+
+        # Print out total real space MB spin density
+        if n_spin==2:
+            mb_spin_den=mb_wf_spins[0]**2-mb_wf_spins[1]**2
+        
+            out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spden'+'.'+file_type
+            if out_label:
+                out_file_name+=out_label+'_'
+
+            write_wann(out_file_name,mb_spin_den,n_mesh,header)
+            print('Wrote mb spin den '+str(iden_mat+n_mbwfs[0]))
+
+                
+
+        
+        mb_wfs.append([mb_wf_spins[:],mb_wf_tot])
+
+    return mb_wfs
+
+    #HERERERERE
+    
+#*************************************************************************************
+
+#*************************************************************************************
 # Print out information about the states
 def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False):
     '''
@@ -229,19 +310,25 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             if prt_mrchar:
                 den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,n_eigenvec)
                 eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real,multiref.real])
-
-                # Print out density matrix
-                if prt_dm:
-                    with open(out_label+'den_mat.dat','a') as f:
-                        f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
-                        for i in range(0,den_mat.shape[0]):
-                            for j in range(0,den_mat.shape[1]):
-                                f.write('%10.4f' % (den_mat[i,j]))
-                            f.write('\n')
-                        f.write('\n')
-                        
+         
             else:
                 eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real])
+
+            # Print out density matrix
+            if prt_dm:
+                if not prt_mrchar:
+                    den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(n_eigenvec),int(n_eigenvec)])
+                    den_mat=den_mats[0]
+                    
+                with open(out_label+'den_mat.dat','a') as f:
+                    f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
+                    for i in range(0,den_mat.shape[0]):
+                        for j in range(0,den_mat.shape[1]):
+                            f.write('%10.4f' % (den_mat[i,j]))
+                        f.write('\n')
+                    f.write('\n')
+               
+                
                 
             # Keep track of the absolute number of eigenstate
             n_eigenvec += 1
@@ -253,10 +340,10 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     f_state= open(out_label+"eigensys.dat","w+")
 
     # Make sure we are not trying to print more states than there are
-    if n_print[1]>len(eigensys):
-        n_print[1]=len(eigensys)
+    if n_print[1]>=len(eigensys):
+        n_print[1]=len(eigensys)-1
 
-    for ii in range(n_print[0],n_print[1]):
+    for ii in range(n_print[0],n_print[1]+1):
         # Write out info
         f_state.write('%10s %10s %10s %10s %10s %10s %10s %10s' % \
                       ("Energy:", np.round(float(eigensys[ii][1]),6), \

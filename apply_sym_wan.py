@@ -9,8 +9,6 @@ import math
 # pymatgen symmetry stuff
 import pymatgen as pmg
 from  pymatgen.symmetry.groups import *
-#from pymatgen.symmetry.settings import *
-
 
 #*************************************************************************************
 # Load the cube files
@@ -30,16 +28,28 @@ def load_cube_files(wf_file_names):
 
     '''
     wanns=[]
-    for filename1 in wf_file_names:
+    for ifile,filename1 in enumerate(wf_file_names):
+
         # Open file
         f1=open(filename1)
         lines1=f1.readlines()
 
-        # Get basic info, should be the same for all files
-        n_at1=lines1[2].split()[0]
-        delr=[float(lines1[3].split()[1]),float(lines1[4].split()[2]),float(lines1[5].split()[3])]
-        n_mesh=[int(lines1[3].split()[0]),int(lines1[4].split()[0]),int(lines1[5].split()[0])]
-    
+        # Make sure headers are the same
+        if ifile==0:
+            # Get basic info, should be the same for all files
+            n_at1=lines1[2].split()[0]
+            delr=[float(lines1[3].split()[1]),float(lines1[4].split()[2]),float(lines1[5].split()[3])]
+            n_mesh=[int(lines1[3].split()[0]),int(lines1[4].split()[0]),int(lines1[5].split()[0])]
+
+            header=lines1[0:6]
+
+        else:
+            _header=lines1[0:6]
+
+            if header != _header:
+                print('CUBE files are not compatible!!')
+                raise
+            
 
         # Read in wannier functions on the mesh
         wann1=[]
@@ -50,12 +60,12 @@ def load_cube_files(wf_file_names):
             
         wanns.append(np.reshape(wann1,(n_mesh[0],n_mesh[1],n_mesh[2])))
 
-    return wanns, delr, n_mesh
+    return wanns, delr, n_mesh, header
 #*************************************************************************************
 
 #*************************************************************************************
 # Load an xsf files
-def load_xsf_files(wf_file_names,convert_lat=False):
+def load_xsf_files(wf_file_names,convert_lat=False,flip_xz=True):
     '''
     Load a wannier function in xsf file format. wannier_plot_mode =
     molecule is not available in this case
@@ -71,29 +81,45 @@ def load_xsf_files(wf_file_names,convert_lat=False):
     '''
 
     wanns=[]
-    for filename1 in wf_file_names:
+    for ifile,filename1 in enumerate(wf_file_names):
 
         # Open file
         f1=open(filename1)
         lines1=f1.readlines()
         f1.close()
 
-        # Get basic info
-        n_at1=int(lines1[14].split()[0])
-        n_mesh=[int(lines1[n_at1+20].split()[0]),int(lines1[n_at1+20].split()[1]),int(lines1[n_at1+20].split()[2])]
+        # Make sure all headers are the same
+        if ifile==0:
+            
+            # Get basic info
+            n_at1=int(lines1[14].split()[0])
+            n_mesh=[int(lines1[n_at1+20].split()[0]),int(lines1[n_at1+20].split()[1]),int(lines1[n_at1+20].split()[2])]
+        
+            # Get the header (makes it easier for output). Assume all are the same
+            header=lines1[0:n_at1+25]
 
-        # Since its not a cube, need lattice vector info. So far, not
-        # tested for nonorthorhombic cells, likely will not work.
-        lat_vec=[]
-        for i in range(0,3):
-            ln=lines1[n_at1+22+i].split()
-            for l in ln:
-                lat_vec.append(float(l))
+            # Since its not a cube, need lattice vector info. So far, not
+            # tested for nonorthorhombic cells, likely will not work.
+            lat_vec=[]
+            for i in range(0,3):
+                ln=lines1[n_at1+22+i].split()
+                for l in ln:
+                    lat_vec.append(float(l))
 
-        lat_vec=np.reshape(lat_vec,(3,3))
-                
-        delr=lat_vec.dot(np.reciprocal(np.array([float(n_mesh[0]),float(n_mesh[1]),float(n_mesh[2])])))
+            lat_vec=np.reshape(lat_vec,(3,3))
+        
+            delr=lat_vec.dot(np.reciprocal(np.array([float(n_mesh[0]),float(n_mesh[1]),float(n_mesh[2])])))
 
+
+        else:
+            # Get the header (makes it easier for output). Assume all are the same
+            _header=lines1[0:n_at1+25]
+
+            if header != _header:
+                print('XSF files are not compatible!!')
+                raise
+
+            
         # Read in wannier functions on the mesh
         wann1=[]
         for grd_lines in lines1[25+int(n_at1):]:
@@ -133,12 +159,43 @@ def load_xsf_files(wf_file_names,convert_lat=False):
 
         # Seems like for xsf, the x and z axes are switched
         # compared to cube:
-        wann1=wann1.transpose(2,1,0)
+        if flip_xz:
+            wann1=wann1.transpose(2,1,0)
 
         # Add wannier function
         wanns.append(wann1)
 
-    return wanns, delr, n_mesh
+    return wanns, delr, n_mesh, header
+#*************************************************************************************
+
+#*************************************************************************************
+# write xsf file
+def write_wann(file_name,wann,n_mesh,header):
+    '''
+    '''
+
+    with open(file_name, 'w') as out_file:
+
+        for line in header:
+            out_file.write(line)
+
+        wann_out=np.reshape(wann,(n_mesh[0]*n_mesh[1]*n_mesh[2])) 
+
+        limit=int(np.ceil(float(n_mesh[0]*n_mesh[1]*n_mesh[2])/6.0))
+
+        wann_out=np.pad(wann_out,(0,limit*6-len(wann_out)),mode='empty')
+        wann_out=np.reshape(wann_out,(limit,6))
+
+        np.savetxt(out_file,wann_out,fmt='%.8e',delimiter='\t')
+
+        if 'xsf' in file_name:
+            out_file.write("END_DATAGRID_3D\n")
+            out_file.write("END_BLOCK_DATAGRID_3D\n")
+        
+    
+    return 
+
+    
 #*************************************************************************************
 
 #*************************************************************************************
@@ -446,9 +503,9 @@ def print_reps(wan_files,file_type='cube',center_in_cell=False,cht_rnd=0.01):
 
     # Read in wannier functions
     if file_type=='cube':
-        wanns,delr,n_mesh = load_cube_files(wf_file_names)
+        wanns,delr,n_mesh,header = load_cube_files(wf_file_names)
     elif file_type=='xsf':
-        wanns,delr,n_mesh = load_xsf_files(wf_file_names)
+        wanns,delr,n_mesh,header = load_xsf_files(wf_file_names)
 
     
     # For xsf, get total center of mass and align all wannier functions to it

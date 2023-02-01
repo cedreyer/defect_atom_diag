@@ -18,13 +18,10 @@ import sys
 # 02/25/20
 
 #*************************************************************************************
-# Check the multi-reference nature of the state.
-def check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10,verbose=False):
+# Get the one body density matricies
+def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=False):
     '''
-    Check the multi-reference nature of the state. From J. Cano: if
-     <c^\dagger_i c_j> does not square to itself, then there is no
-     basis where the state can be expressed as a single slater
-     determinant
+    Get the density matricies <c^\dagger_i c_j> 
 
     Inputs: 
     ad: Solution to atomic problem
@@ -33,13 +30,13 @@ def check_multi_ref(ad,spin_names,orb_names,fops,eigensys,n_states=10,verbose=Fa
     fops: Many-body operators
     eigensys:  states, energies, etc. from ad
     n_orb: Number of orbitals
-    n_states: Number of states to check
+    n_mbwfs: Number of states to check
     '''
 
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     den_mats=[]
-    for state in range(0,n_states):
+    for state in range(n_mbwfs[0],n_mbwfs[1]+1):
 
         if state == len(eigensys):
             break
