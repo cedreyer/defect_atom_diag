@@ -21,7 +21,7 @@ from apply_sym_wan import *
 
 #*************************************************************************************
 # Print out some properties of the ground state
-def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2_print=False):
+def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2_print=False, spin_orbit=False):
     '''
     Print to the terminal some properties to check the run
     
@@ -46,16 +46,25 @@ def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2
 
     # Angular momentum
     if s2_print:
-        try:
-            S2=S2_op(spin_names,len(orb_names),off_diag=True)
-        except:
-            S2=S2_op(spin_names,orb_names,off_diag=True)
+
+        if spin_orbit:
+            S2=spin_orbit_S2_op(spin_names,orb_names,fops)
+        else:
+            try:
+                S2=S2_op(spin_names,len(orb_names),off_diag=True)
+            except:
+                S2=S2_op(spin_names,orb_names,off_diag=True)
+                
         print("s(s+1) = ",trace_rho_op(dm, S2, ad))
+
     if l2_print:
-        try:
-            L2=L2_op(spin_names,len(orb_names),off_diag=True)
-        except:
-            L2=L2_op(spin_names,orb_names,off_diag=True)
+        if spin_orbit:
+            L2=spin_orbit_L2_op(spin_names,orb_names,fops)
+        else:
+            try:
+                L2=L2_op(spin_names,len(orb_names),off_diag=True)
+            except:
+                L2=L2_op(spin_names,orb_names,off_diag=True)
         print("l(l+1) = ",trace_rho_op(dm, L2, ad))
 
     return
@@ -127,9 +136,23 @@ def prt_at_diag(ad,out_label):
 
 #*************************************************************************************
 # Create many-body wavefunctions for plotting/visualization. Based off of code from Gabriel
-def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label):#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False,verbose=True):
-
+def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label,verbose=True):#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False):
     '''
+    Print the many-body wavefunctions by tracing over the density matrix
+ 
+    Inputs:
+    ad: Solution to the atomic problem
+    wf_files: List of the files for wannier functions in real space, either xsf or cube (NOT TESTED)
+    spin_names: List of spins
+    orb_names: List of orbitals
+    fops: Fundamental operators
+    eigensys: List of states and energies
+    out_label: Label for output files
+    verbose: Print status
+
+    Outputs:
+    None for now. Can return list of MB states on the real-space grid if needed.
+
     '''
 
     n_spin=len(spin_names)
@@ -146,6 +169,20 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
     else:
         print('INVALID FILE FOR REAL SPACE WFs!')
         raise
+
+
+    # Assume that if we have n_spin*n_orb Wannier functions, they are
+    # spinful with the first half spin up, second half spin down. If
+    # we have n_spin*n_orb/2, then they are spinless
+    if len(wf_files)==n_spin*n_orb:
+        wf_type='spinful'
+        if verbose: print('NOTE: assuming spinful/spinorbit Wannier functions')
+    elif n_spin==2 and len(wf_files)==n_orb:
+        wf_type='spinless'
+        if verbose:print('NOTE: assuming spinless Wannier functions')
+    else:
+        print('INCORRECT NUMBER OF WANNIER FUNCTIONS!')
+        raise
     
     # Get the density matrix
     den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=n_mbwfs)
@@ -153,17 +190,34 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
     mb_wfs=[]
     for iden_mat,den_mat in enumerate(den_mats):
 
+        
         occs=np.diag(den_mat)
+
+        # Make sure 1RDM is positive semi-definite. If so, get rid of imaginary part
+        if all(iocc < 1.0E-10 for iocc in np.abs(occs.imag)) and any(iocc < 0 for iocc in occs.real):
+            print('1RDM IS NOT POSITIVE SEMIDEFINITE!')
+            raise
+        elif any(iocc < 0 for iocc in np.abs(occs)):
+            print('1RDM IS NOT POSITIVE SEMIDEFINITE!')
+            raise
+        else:
+            occs=np.abs(np.diag(den_mat))
+        
         
         mb_wf_spins=[]
         mb_wf_tot=np.zeros([n_mesh[0],n_mesh[1],n_mesh[2]])
 
-        # For now spinless Wannier functions
-        for ispin in range(0,n_spin):
+        # Note: we always do two spins, only difference is if we have different WF for different spins
+        for ispin in range(0,2): 
             mb_wf_spin=np.zeros([n_mesh[0],n_mesh[1],n_mesh[2]])
             for iorb in range(0,n_orb):
-                mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb]
-                mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb]
+                
+                if wf_type=='spinless':
+                    mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb]
+                    mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb]
+                elif wf_type=='spinful':
+                    mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb+n_orb*ispin]
+                    mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb+n_orb*ispin]
 
             # Print out real space MB wavefunctions for given spin
             out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spin_'+str(ispin)+'.'+file_type
@@ -171,7 +225,7 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
                 out_file_name+=out_label+'_'
 
             write_wann(out_file_name,mb_wf_spin,n_mesh,header)
-            print('Wrote mbwf '+str(iden_mat+n_mbwfs[0])+' for spin '+str(ispin))
+            if verbose: print('Wrote mbwf '+str(iden_mat+n_mbwfs[0])+' for spin '+str(ispin))
                 
             mb_wf_spins.append(mb_wf_spin)
                       
@@ -181,7 +235,7 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
             out_file_name+=out_label+'_'
 
         write_wann(out_file_name,mb_wf_tot,n_mesh,header)
-        print('Wrote total mbwf '+str(iden_mat+n_mbwfs[0]))
+        if verbose:print('Wrote total mbwf '+str(iden_mat+n_mbwfs[0]))
 
         # Print out total real space MB spin density
         if n_spin==2:
@@ -192,22 +246,17 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
                 out_file_name+=out_label+'_'
 
             write_wann(out_file_name,mb_spin_den,n_mesh,header)
-            print('Wrote mb spin den '+str(iden_mat+n_mbwfs[0]))
+            if verbose: print('Wrote mb spin den '+str(iden_mat+n_mbwfs[0]))
 
-                
-
-        
         mb_wfs.append([mb_wf_spins[:],mb_wf_tot])
 
-    return mb_wfs
+    return #mb_wfs
 
-    #HERERERERE
-    
 #*************************************************************************************
 
 #*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False):
+def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,spin_orbit=False):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -230,17 +279,20 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     '''
 
     # Get spin eigenvalues, may be useful
-    try:
-        S2 = S2_op(spin_names, len(orb_names), off_diag=True)
-        S2 = make_operator_real(S2)
-        Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
-    except:
-        S2 = S2_op(spin_names, orb_names, off_diag=True)
-        S2 = make_operator_real(S2)
-        Sz=S_op('z', spin_names, orb_names, off_diag=True)
+    if spin_orbit:
+        S2=spin_orbit_S2_op(spin_names,orb_names,fops)
+        Sz=spin_orbit_Sz_op(spin_names,orb_names,fops,proj='z')
+    else:
+        try:
+            S2 = S2_op(spin_names, len(orb_names), off_diag=True)
+            Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
+        except:
+            S2 = S2_op(spin_names, orb_names, off_diag=True)
+            Sz=S_op('z', spin_names, orb_names, off_diag=True)
         
     Sz = make_operator_real(Sz)
-
+    S2 = make_operator_real(S2)
+    
     S2_states = quantum_number_eigenvalues(S2, ad)
     Sz_states = quantum_number_eigenvalues(Sz, ad)
  
@@ -304,31 +356,8 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             eng=ad.energies[sub][ind]
             spin=round(float(S2_states[sub][ind]),3)
             ms=round(float(Sz_states[sub][ind]),3)
-
             
-            # Get multireference character:
-            if prt_mrchar:
-                den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,n_eigenvec)
-                eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real,multiref.real])
-         
-            else:
-                eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real])
-
-            # Print out density matrix
-            if prt_dm:
-                if not prt_mrchar:
-                    den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(n_eigenvec),int(n_eigenvec)])
-                    den_mat=den_mats[0]
-                    
-                with open(out_label+'den_mat.dat','a') as f:
-                    f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
-                    for i in range(0,den_mat.shape[0]):
-                        for j in range(0,den_mat.shape[1]):
-                            f.write('%10.4f' % (den_mat[i,j]))
-                        f.write('\n')
-                    f.write('\n')
-               
-                
+            eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real])
                 
             # Keep track of the absolute number of eigenstate
             n_eigenvec += 1
@@ -336,12 +365,12 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     # Sort by energy
     eigensys.sort(key=take_second)
 
-    # print info for given number of states
-    f_state= open(out_label+"eigensys.dat","w+")
-
     # Make sure we are not trying to print more states than there are
     if n_print[1]>=len(eigensys):
-        n_print[1]=len(eigensys)-1
+        n_print[1]=len(eigensys)-1    
+
+    # print info for given number of states
+    f_state= open(out_label+"eigensys.dat","w+")
 
     for ii in range(n_print[0],n_print[1]+1):
         # Write out info
@@ -353,11 +382,36 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
         
         # Optional stuff
         if prt_mrchar: # Character of mb state
-            f_state.write('%10s %10s\n' % ("MultiRef:",np.round(float(eigensys[ii][5]),4)))
+            den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,int(eigensys[ii][3]))
+            f_state.write('{:^16}'.format("MultiRef:"))
+            if np.abs(multiref.imag) < 1.0E-5:
+                f_state.write('{:6.4f}\n '.format(multiref.real))
+            else:
+                f_state.write('{:6.4f}\n '.format(multiref))
         else:
             f_state.write('\n')
-            
-            
+
+        if prt_dm: # Density matrix
+            if not prt_mrchar:
+                den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(eigensys[ii][3]),int(eigensys[ii][3])+1])
+                den_mat=den_mats[0] 
+
+
+            with open(out_label+'den_mat.dat','a') as f:
+                f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
+                for i in range(0,den_mat.shape[0]):
+                    for j in range(0,den_mat.shape[1]):
+
+                        if den_mat[i,j].imag < 1.0E-10:
+                            f.write('{:.6f}\t '.format(den_mat[i,j].real))
+                        else:
+                            f.write('{:.6f}\t'.format(den_mat[i,j]))
+
+                    f.write('\n')
+                f.write('\n')
+
+
+                
         if prt_state:
             f_state.write('%10s %s\n' % ("State:",eigensys[ii][0]))
             f_state.write("\n")

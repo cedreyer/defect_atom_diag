@@ -49,7 +49,7 @@ def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=Fa
         state_eig[int(n_eig)]=1.0
         
         # Construct density matrix
-        den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb))
+        den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
         for s1 in range(0,n_spin):
             for s2 in range(0,n_spin):
                 for ii in range(0,n_orb):
@@ -60,9 +60,8 @@ def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=Fa
                         xx=ii+s1*n_orb
                         yy=jj+s2*n_orb
                     
-                        den_mat[xx,yy]=np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
+                        den_mat[xx,yy]=np.dot(state_eig,act(den_op,state_eig,ad))#np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
 
-                        #print(xx,yy,den_op)
                         
         den_mats.append(den_mat)
 
@@ -108,7 +107,7 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
     state_eig[int(n_eig)]=1.0        
     
     # Construct density matrix
-    den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb))
+    den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
     for s1 in range(0,n_spin):
         for s2 in range(0,n_spin):
             for ii in range(0,n_orb):
@@ -119,7 +118,7 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
                     xx=ii+s1*n_orb
                     yy=jj+s2*n_orb
                         
-                    den_mat[xx,yy]=np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
+                    den_mat[xx,yy]=np.dot(state_eig,act(den_op,state_eig,ad))#np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
 
                     #print(s1,s2,ii,jj,den_mat[xx,yy])
 
@@ -477,6 +476,7 @@ def construct_dij(n_orb,repsfile,flip=False):
             dij.append([rot_mat,rep_mat,spin_mat])
             
     return dij
+#*************************************************************************************
  
 #*************************************************************************************
 # Calculates and sums the characters for orbitals in a degenerate group 
@@ -559,3 +559,86 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
     return
 
 #*************************************************************************************
+
+#*************************************************************************************
+# Makes an Sz operator if spin is not explicitly given
+def spin_orbit_S_op(spin_names,orb_names,fops,proj='z'):
+    '''
+    Defines a spin operator assuming the first half of the orbitals are spin up and the second half
+    are spin down. Of course only for colinear spins.
+
+    Inputs:
+    spin_names: List of spins
+    orb_names: Orbital names
+    fops: Many-body operators
+
+    Outputs:
+    S_SO: S operator
+
+    '''
+
+    n_orb=len(orb_names)
+
+    if proj=='z':
+        pauli_mat=0.5*np.array([[1,0],[0,-1]])
+    elif proj=='x':
+        pauli_mat=0.5*np.array([[0,1],[1,0]])
+    elif proj=='y':
+        pauli_mat=0.5*np.array([[0,-1j],[1j,0]])
+    else:
+        print('INNCORRECT SPIN PROJECTION!')
+        raise
+        
+    S_SO=Operator()
+    for s in spin_names:
+        for o1 in range(n_orb/2):
+
+            S_SO+=np.dot(np.dot(np.array([c_dag(s,o1),c_dag(s,int(o1+n_orb/2))]),pauli_mat),np.array([c(s,o1),c(s,int(o1+n_orb/2))]))
+
+    return S_SO
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Makes an S2 operator if spin is not explicitly given
+def spin_orbit_S2_op(spin_names,orb_names,fops):
+    '''
+    Defines a Sz operator assuming the first half of the orbitals are spin up and the second half
+    are spin down.
+
+    Inputs:
+    spin_names: List of spins
+    orb_names: Orbital names
+    fops: Many-body operators
+
+    Outputs:
+    S2_SO: S2 operator
+    '''
+    Sx=spin_orbit_S_op(spin_names,orb_names,fops,proj='x')
+    Sy=spin_orbit_S_op(spin_names,orb_names,fops,proj='y')
+    Sz=spin_orbit_S_op(spin_names,orb_names,fops,proj='z')
+
+    S2_SO=Sx**2+Sy**2+Sz**2
+
+    return S2_SO
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Makes an S2 operator if spin is not explicitly given
+def spin_orbit_L2_op(spin_names,orb_names,fops):
+    '''
+    Defines a L2 operator
+
+    Inputs:
+    spin_names: List of spins
+    orb_names: Orbital names
+    fops: Many-body operators
+
+    Outputs:
+    S2_SO: S2 operator
+
+    '''
+    L2_SO=Operator()
+
+    return L2_SO
