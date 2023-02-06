@@ -169,6 +169,78 @@ def load_xsf_files(wf_file_names,convert_lat=False,flip_xz=True):
 #*************************************************************************************
 
 #*************************************************************************************
+# Load an xsf file, get mesh points in cartesian coordinates
+def load_xsf_get_mesh(wf_file_name, mesh_shape='3D'):
+    '''
+    Get the mesh on which the xsf file is plotted
+
+    Inputs: 
+    wf_file_name: Name of the wannier function XSF file 
+    mesh_shape: Output shape of mesh, '1D' or '3D'
+    
+    Outputs:
+    mesh_pts: Cartesian coordinates of 
+
+    '''
+
+    # Open file
+    f1=open(wf_file_name)
+    lines1=f1.readlines()
+    f1.close()
+            
+    # Get basic info
+    n_at1=int(lines1[14].split()[0])
+    n_mesh=[int(lines1[n_at1+20].split()[0]),int(lines1[n_at1+20].split()[1]),int(lines1[n_at1+20].split()[2])]
+         
+    # Since its not a cube, need lattice vector info.
+    lat_vec=[]
+    for i in range(0,3):
+        ln=lines1[n_at1+22+i].split()
+        for l in ln:
+            lat_vec.append(float(l))
+
+    lat_vec=np.reshape(lat_vec,(3,3))
+
+    # spacing in units of lattice constants
+    delr=lat_vec.dot(np.reciprocal(np.array([float(n_mesh[0]),float(n_mesh[1]),float(n_mesh[2])])))
+       
+    # Get the header (makes it easier for output).
+    header=lines1[0:n_at1+25]
+
+    # Read in wannier functions on the mesh
+    wann1=[]
+    for grd_lines in lines1[25+int(n_at1):]:
+        if 'END_DATAGRID_3D' in grd_lines:
+            break
+
+        grd_pts=grd_lines.split()
+        for grds in grd_pts:
+            wann1.append(float(grds))
+                           
+    wann1=np.reshape(wann1,(n_mesh[0],n_mesh[1],n_mesh[2]))        
+        
+    # Get cartesian grid:
+
+    _x1=np.linspace(0,1,n_mesh[0])
+    _y1=np.linspace(0,1,n_mesh[1])
+    _z1=np.linspace(0,1,n_mesh[2])            
+            
+    x1,y1,z1=np.meshgrid(_x1,_y1,_z1)
+    positions1 = np.vstack([x1.ravel(), y1.ravel(),z1.ravel()]).T
+
+    if mesh_shape=='1D':
+        mesh_pts=np.dot(positions1,lat_vec)
+    elif mesh_shape=='3D':
+        mesh_pts=np.reshape(np.dot(positions1,lat_vec),(n_mesh[0],n_mesh[1],n_mesh[2],3))
+    else:
+        print('INCORRECT MESH_SHAPE')
+        raise
+            
+    return wann1, delr, n_mesh, header, mesh_pts
+#*************************************************************************************
+
+
+#*************************************************************************************
 # write xsf file
 def write_wann(file_name,wann,n_mesh,header):
     '''
