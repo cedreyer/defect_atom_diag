@@ -21,7 +21,7 @@ from apply_sym_wan import *
 
 #*************************************************************************************
 # Print out some properties of the ground state
-def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2_print=False, spin_orbit=False):
+def print_occ_ang_mom(orb_names,spin_names,ad,occ_print=True,s2_print=True,l2_print=False, spin_orbit=False):
     '''
     Print to the terminal some properties to check the run
     
@@ -38,6 +38,10 @@ def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2
     None.
     '''
 
+    # Get density matrix
+    beta = 1e5
+    dm = atomic_density_matrix(ad, beta)
+    
     if occ_print:
         print("Ground state occupancies")
         for s in spin_names:
@@ -47,14 +51,18 @@ def print_occ_ang_mom(orb_names,spin_names,ad,dm,occ_print=True,s2_print=True,l2
     # Angular momentum
     if s2_print:
 
-        if spin_orbit:
-            S2=spin_orbit_S2_op(spin_names,orb_names,fops)
-        else:
-            try:
-                S2=S2_op(spin_names,len(orb_names),off_diag=True)
-            except:
-                S2=S2_op(spin_names,orb_names,off_diag=True)
-                
+        #if spin_orbit:
+        #    S2=spin_orbit_S2_op(spin_names,orb_names,fops)
+        #else:
+        #    try:
+        #        S2=S2_op(spin_names,len(orb_names),off_diag=True)
+        #    except:
+        #        S2=S2_op(spin_names,orb_names,off_diag=True)
+
+        # General version
+        S2=spin_orbit_S2_op(fops)
+        
+        
         print("s(s+1) = ",trace_rho_op(dm, S2, ad))
 
     if l2_print:
@@ -114,7 +122,7 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
 
 #*************************************************************************************
 # Save atom_diag object
-def prt_at_diag(ad,out_label):
+def print_at_diag(ad,out_label,eigensys,den_mats=[]):
     '''
     Save the atom diag object
 
@@ -126,17 +134,22 @@ def prt_at_diag(ad,out_label):
     None
 
     '''
-
+    
     with HDFArchive(out_label+'ad.h5') as ar:
-        ar['ad'] = ad
+        ar['ad'] = ad        
+        ar['eigensys'] = eigensys
+
+        if den_mats:
+            ar['den_mats'] = den_mats
 
     return
 
 #*************************************************************************************
 
+
 #*************************************************************************************
 # Create many-body wavefunctions for plotting/visualization. Based off of code from Gabriel
-def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label,verbose=True):#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False):
+def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label,den_mats=[],verbose=True):#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False):
     '''
     Print the many-body wavefunctions by tracing over the density matrix
  
@@ -185,8 +198,10 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
         raise
     
     # Get the density matrix
-    den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=n_mbwfs)
-
+    if not den_mats:
+        print('Generating the density matrix')
+        den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=n_mbwfs)
+        
     mb_wfs=[]
     for iden_mat,den_mat in enumerate(den_mats):
 
@@ -210,15 +225,15 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
         # Note: we always do two spins, only difference is if we have different WF for different spins
         for ispin in range(0,2): 
             mb_wf_spin=np.zeros([n_mesh[0],n_mesh[1],n_mesh[2]])
-            for iorb in range(0,n_orb):
-                
-                if wf_type=='spinless':
+            if wf_type=='spinless':
+                for iorb in range(0,n_orb):
                     mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb]
                     mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb]
-                elif wf_type=='spinful':
-                    mb_wf_tot+=occs[iorb+n_orb*ispin]*wanns[iorb+n_orb*ispin]
-                    mb_wf_spin+=occs[iorb+n_orb*ispin]*wanns[iorb+n_orb*ispin]
-
+            elif wf_type=='spinful':
+                for iorb in range(0,int(n_orb/2)):
+                    mb_wf_tot+=occs[iorb+int(n_orb/2)*ispin]*wanns[iorb+int(n_orb/2)*ispin]
+                    mb_wf_spin+=occs[iorb+int(n_orb/2)*ispin]*wanns[iorb+int(n_orb/2)*ispin]
+                    
             # Print out real space MB wavefunctions for given spin
             out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spin_'+str(ispin)+'.'+file_type
             if out_label:
@@ -238,15 +253,14 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
         if verbose:print('Wrote total mbwf '+str(iden_mat+n_mbwfs[0]))
 
         # Print out total real space MB spin density
-        if n_spin==2:
-            mb_spin_den=mb_wf_spins[0]**2-mb_wf_spins[1]**2
+        mb_spin_den=mb_wf_spins[0]**2-mb_wf_spins[1]**2
         
-            out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spden'+'.'+file_type
-            if out_label:
-                out_file_name+=out_label+'_'
+        out_file_name='mbwf_'+str(iden_mat+n_mbwfs[0])+'_spden'+'.'+file_type
+        if out_label:
+            out_file_name+=out_label+'_'
 
-            write_wann(out_file_name,mb_spin_den,n_mesh,header)
-            if verbose: print('Wrote mb spin den '+str(iden_mat+n_mbwfs[0]))
+        write_wann(out_file_name,mb_spin_den,n_mesh,header)
+        if verbose: print('Wrote mb spin den '+str(iden_mat+n_mbwfs[0]))
 
         mb_wfs.append([mb_wf_spins[:],mb_wf_tot])
 
@@ -278,43 +292,50 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     
     '''
 
-    # Get spin eigenvalues, may be useful
-    if spin_orbit:
-        S2=spin_orbit_S2_op(spin_names,orb_names,fops)
-        Sz=spin_orbit_Sz_op(spin_names,orb_names,fops,proj='z')
-    else:
-        try:
-            S2 = S2_op(spin_names, len(orb_names), off_diag=True)
-            Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
-        except:
-            S2 = S2_op(spin_names, orb_names, off_diag=True)
-            Sz=S_op('z', spin_names, orb_names, off_diag=True)
+    # Get spin eigenvalues, may be useful. No should be general for SO
+    # case IF first half of orbitals are interpreted as spin up and
+    # second spin down
+    #if spin_orbit:
+    #    S2=spin_orbit_S2_op(spin_names,orb_names,fops)
+    #    Sz=spin_orbit_Sz_op(spin_names,orb_names,fops,proj='z')
+    #else:
+    #    try:
+    #        S2 = S2_op(spin_names, len(orb_names), off_diag=True)
+    #        Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
+    #    except:
+    #        S2 = S2_op(spin_names, orb_names, off_diag=True)
+    #        Sz=S_op('z', spin_names, orb_names, off_diag=True)
         
-    Sz = make_operator_real(Sz)
-    S2 = make_operator_real(S2)
+    # Replace quantum_number_eigenvalues function with get_exp_vals so we can do it with SO. Should work the same.
+    #Sz = make_operator_real(Sz)
+    #S2 = make_operator_real(S2)
+    #S2_states = quantum_number_eigenvalues(S2, ad)
+    #Sz_states = quantum_number_eigenvalues(Sz, ad)
+
+    # General spin operators. Should work with spinful or spinless as
+    # long as first half spin up, second half spin down.
+    Sz=spin_orbit_S_op(fops,proj='z')
+    S2=spin_orbit_S2_op(fops)
+
+    # This is slow for large Hilbert spaces
+    Sz_states=get_exp_vals(ad,spin_names,orb_names,fops,Sz)
+    S2_states=get_exp_vals(ad,spin_names,orb_names,fops,S2)
     
-    S2_states = quantum_number_eigenvalues(S2, ad)
-    Sz_states = quantum_number_eigenvalues(Sz, ad)
- 
     n_orb=len(orb_names)
     n_spin=len(spin_names)
-
-    # Save the AtomDiag object
-    if prt_ad:
-        prt_at_diag(ad,out_label)
-
     
     # For printing out the density matrix
     if prt_dm:
         with open(out_label+'den_mat.dat','w') as f:
             f.write('Density Matrices\n')
             f.write('\n')
-    
+
+    den_mats=[]    
     n_eigenvec=0.0
     eigensys=[]
     # Loop through subspaces
     for sub in range(0,ad.n_subspaces):
-
+        
         skip_sub=False
         # get fock state in nice format
         subspace_fock_state=[]
@@ -364,7 +385,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
 
     # Sort by energy
     eigensys.sort(key=take_second)
-
+    
     # Make sure we are not trying to print more states than there are
     if n_print[1]>=len(eigensys):
         n_print[1]=len(eigensys)-1    
@@ -383,6 +404,8 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
         # Optional stuff
         if prt_mrchar: # Character of mb state
             den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,int(eigensys[ii][3]))
+            den_mats.append(den_mat)
+                
             f_state.write('{:^16}'.format("MultiRef:"))
             if np.abs(multiref.imag) < 1.0E-5:
                 f_state.write('{:6.4f}\n '.format(multiref.real))
@@ -393,10 +416,10 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
 
         if prt_dm: # Density matrix
             if not prt_mrchar:
-                den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(eigensys[ii][3]),int(eigensys[ii][3])+1])
-                den_mat=den_mats[0] 
-
-
+                _dm=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(eigensys[ii][3]),int(eigensys[ii][3])+1])
+                den_mats.append(_dm[0])
+                den_mat=den_mats[-1]
+                
             with open(out_label+'den_mat.dat','a') as f:
                 f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
                 for i in range(0,den_mat.shape[0]):
@@ -417,7 +440,12 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             f_state.write("\n")
 
     f_state.close()
-    return eigensys
+
+    # Save the AtomDiag object
+    if prt_ad:
+        print_at_diag(ad,out_label,eigensys,den_mats)
+
+    return eigensys,den_mats
 #*************************************************************************************
 
 #*************************************************************************************

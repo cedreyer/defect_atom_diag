@@ -18,6 +18,71 @@ import sys
 # 02/25/20
 
 #*************************************************************************************
+# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
+def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
+    '''
+    Get the density matricies <c^\dagger_i c_j> 
+
+    Inputs: 
+    ad: Solution to atomic problem
+    spin_names: List of spins
+    orb_names: Orbital names
+    fops: Many-body operators
+    eigensys:  states, energies, etc. from ad
+    state: Index of the state (in energy ordering)
+    operator: Operator to get exp value of
+
+    Outputs:
+    exp_val: Expectation values
+
+    '''
+
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    exp_vals=[]
+    n_eig=0
+    # Loop through subspaces
+    for sub in range(0,ad.n_subspaces):
+        exp_val=np.zeros(ad.get_subspace_dim(sub),dtype='complex128')
+        for ind in range(0,ad.get_subspace_dim(sub)):
+        
+            # Get desired states in eigenvector basis
+            state_eig = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig[int(n_eig)]=1.0
+        
+            exp_val[ind]=np.dot(state_eig.T,act(operator,state_eig,ad))
+
+            n_eig+=1
+
+            print(n_eig,'/',ad.full_hilbert_space_dim)
+        exp_vals.append(exp_val)
+        
+    return exp_vals
+
+#*************************************************************************************
+# Get expectation value of an operator for ONE states. Should be used in many of the operations below!!!
+def get_exp_val(ad,state,operator):
+    '''
+    Get the density matricies <c^\dagger_i c_j> 
+
+    Inputs: 
+    ad: Solution to atomic problem
+    state: Index of the state (in energy ordering)
+    operator: Operator to get exp value of
+
+    Outputs:
+    exp_val: Expectation value
+
+    '''
+        
+    state_eig = np.zeros((int(ad.full_hilbert_space_dim)))
+    state_eig[int(n_eig)]=1.0        
+    exp_val[ind]=np.dot(state_eig.T,act(operator,state_eig,ad))
+
+        
+    return exp_val
+
+#*************************************************************************************
 # Get the one body density matricies
 def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=False):
     '''
@@ -83,7 +148,7 @@ def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=Fa
 
 #*************************************************************************************
 # Check the multi-reference nature of single state
-def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
+def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False,den_mat=[]):
     '''
     Check the multi-reference nature of the state. From J. Cano: if
      <c^\dagger_i c_j> does not square to itself, then there is no
@@ -107,18 +172,19 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False):
     state_eig[int(n_eig)]=1.0        
     
     # Construct density matrix
-    den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
-    for s1 in range(0,n_spin):
-        for s2 in range(0,n_spin):
-            for ii in range(0,n_orb):
-                for jj in range(0,n_orb):
+    if not den_mat:
+        den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+        for s1 in range(0,n_spin):
+            for s2 in range(0,n_spin):
+                for ii in range(0,n_orb):
+                    for jj in range(0,n_orb):
                         
-                    den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
+                        den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
                     
-                    xx=ii+s1*n_orb
-                    yy=jj+s2*n_orb
+                        xx=ii+s1*n_orb
+                        yy=jj+s2*n_orb
                         
-                    den_mat[xx,yy]=np.dot(state_eig,act(den_op,state_eig,ad))#np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
+                        den_mat[xx,yy]=np.dot(state_eig,act(den_op,state_eig,ad))#np.real(np.dot(state_eig,act(den_op,state_eig,ad)))
 
                     #print(s1,s2,ii,jj,den_mat[xx,yy])
 
@@ -562,14 +628,12 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
 
 #*************************************************************************************
 # Makes an Sz operator if spin is not explicitly given
-def spin_orbit_S_op(spin_names,orb_names,fops,proj='z'):
+def spin_orbit_S_op(fops,proj='z'):
     '''
     Defines a spin operator assuming the first half of the orbitals are spin up and the second half
     are spin down. Of course only for colinear spins.
 
     Inputs:
-    spin_names: List of spins
-    orb_names: Orbital names
     fops: Many-body operators
 
     Outputs:
@@ -577,8 +641,8 @@ def spin_orbit_S_op(spin_names,orb_names,fops,proj='z'):
 
     '''
 
-    n_orb=len(orb_names)
-
+    n_fops=len(fops)
+    
     if proj=='z':
         pauli_mat=0.5*np.array([[1,0],[0,-1]])
     elif proj=='x':
@@ -586,14 +650,18 @@ def spin_orbit_S_op(spin_names,orb_names,fops,proj='z'):
     elif proj=='y':
         pauli_mat=0.5*np.array([[0,-1j],[1j,0]])
     else:
-        print('INNCORRECT SPIN PROJECTION!')
+        print('INCORRECT SPIN PROJECTION!')
         raise
-        
-    S_SO=Operator()
-    for s in spin_names:
-        for o1 in range(n_orb/2):
+    
+    # Lets try and make this general
+    up_fops=fops[0:int(n_fops/2)]
+    dn_fops=fops[int(n_fops/2):n_fops+1]
 
-            S_SO+=np.dot(np.dot(np.array([c_dag(s,o1),c_dag(s,int(o1+n_orb/2))]),pauli_mat),np.array([c(s,o1),c(s,int(o1+n_orb/2))]))
+    S_SO=Operator()
+    for o1 in range(int(n_fops/2)):
+
+        S_SO+=np.dot(np.dot(np.array([c_dag(up_fops[o1][0],up_fops[o1][1]),c_dag(dn_fops[o1][0],dn_fops[o1][1])]),pauli_mat),\
+                     np.array([c(up_fops[o1][0],up_fops[o1][1]),c(dn_fops[o1][0],dn_fops[o1][1])]))
 
     return S_SO
 
@@ -601,24 +669,22 @@ def spin_orbit_S_op(spin_names,orb_names,fops,proj='z'):
 
 #*************************************************************************************
 # Makes an S2 operator if spin is not explicitly given
-def spin_orbit_S2_op(spin_names,orb_names,fops):
+def spin_orbit_S2_op(fops):
     '''
     Defines a Sz operator assuming the first half of the orbitals are spin up and the second half
     are spin down.
 
     Inputs:
-    spin_names: List of spins
-    orb_names: Orbital names
     fops: Many-body operators
 
     Outputs:
     S2_SO: S2 operator
     '''
-    Sx=spin_orbit_S_op(spin_names,orb_names,fops,proj='x')
-    Sy=spin_orbit_S_op(spin_names,orb_names,fops,proj='y')
-    Sz=spin_orbit_S_op(spin_names,orb_names,fops,proj='z')
+    Sx=spin_orbit_S_op(fops,proj='x')
+    Sy=spin_orbit_S_op(fops,proj='y')
+    Sz=spin_orbit_S_op(fops,proj='z')
 
-    S2_SO=Sx**2+Sy**2+Sz**2
+    S2_SO=(Sx+Sy+Sz)*(Sx+Sy+Sz)
 
     return S2_SO
 

@@ -33,7 +33,7 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
-def solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file):
+def solve_ad(H,spin_names,orb_names,fops,mu_in):
     '''
     Solve the atomic problem and tune the chemical potential to the
     target filling. Very inefficient way of doing it but works for now.
@@ -44,12 +44,10 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file):
     orb_names: List of orbitals
     fops: Many-body operators
     mu_in: Dictionary for chem pot options
-    ad_file: file for the AtomDiag object
-
+    
     Outputs:
     H: Hamiltonian with chemical potential term added
     ad: Solution to the atomic problem
-    dm: Density matrix
     N: Number operator
     '''
     
@@ -122,7 +120,7 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file):
     print('# of e-: ', filling)
 
 
-    return ad,dm
+    return ad
 #*************************************************************************************
 
 #*************************************************************************************
@@ -903,7 +901,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
 #*************************************************************************************
 # Setup the Hamiltonian
-def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den=[]):
+def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     '''
     Add terms to the Hamiltonian depending on the input file.
 
@@ -914,7 +912,6 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den
     comp_H: List of components of the Hamiltonian
     int_in: Input parameters
     verbose: Print out parts of H
-    ad_file: file for the AtomDiag object 
     mo_den: Occupation in the band basis
 
     Outputs:
@@ -924,41 +921,33 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den
     N: Number operator
     '''
     
-    # Read in AtomDiag object 
-    if ad_file:
-        print('Reading ad file:',ad_file+'.h5')
-        ad = read_at_diag(ad_file+'.h5')
-        beta = 1e10
-        dm = atomic_density_matrix(ad, beta)
-        
     # Setup the Hamiltonian
-    else:
-        H=Operator()
+    H=Operator()
     
-        # kinetic
-        if comp_H['Hkin']:
+    # kinetic
+    if comp_H['Hkin']:
 
-            H = add_hopping(H,spin_names,orb_names,int_in,verbose=verbose)
+        H = add_hopping(H,spin_names,orb_names,int_in,verbose=verbose)
         
-            # Double counting
-            if comp_H['Hdc']:
+    # Double counting
+    if comp_H['Hdc']:
 
-                if int_in['dc_typ']==0:
-                    H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
-                elif int_in['dc_typ']==1:
-                    H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
-                elif int_in['dc_typ']==2:
-                    H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
+        if int_in['dc_typ']==0:
+            H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
+        elif int_in['dc_typ']==1:
+            H = add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,mu_in['target_occ'])
+        elif int_in['dc_typ']==2:
+            H = add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den)
             
-            # Interaction
-            if comp_H['Hint']:
-                H = add_interaction(H,1,spin_names,orb_names,fops,int_in,verbose=verbose)
+    # Interaction
+    if comp_H['Hint']:
+        H = add_interaction(H,1,spin_names,orb_names,fops,int_in,verbose=verbose)
 
-        # Solve atomic problem
-        ad,dm = solve_ad(H,spin_names,orb_names,fops,mu_in,ad_file)
+    # Solve atomic problem
+    ad = solve_ad(H,spin_names,orb_names,fops,mu_in)
 
 
-    return ad,dm
+    return ad
 #*************************************************************************************
 
 #*************************************************************************************
@@ -974,10 +963,18 @@ def read_at_diag(ad_file):
     ad: AtomDiag object read in
 
     '''
+
     with HDFArchive(ad_file,'r') as ar:
         ad=ar['ad']
+        eigensys=ar['eigensys']
 
-    return ad
+        if 'den_mats' in ar:
+            den_mats=ar['den_mats']
+        else:
+            den_mats=[]
+        
+        
+    return ad,eigensys,den_mats
 
 #*************************************************************************************
 # Read in the input file
@@ -986,8 +983,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,\
-                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12],prt_mbwfs=False, \
-                n_mbwfs=[0,2]):
+                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12],prt_mbwfs=False):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -1200,9 +1196,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='prt_mbwfs':
                 if val=='True' or val=='T' or val=='true':
                     prt_mbwfs=True
-            elif var=='n_mbwfs':
-                n_mbwfs[0]=int(val.split()[0].strip())
-                n_mbwfs[1]=int(val.split()[1].strip())
+#            elif var=='n_mbwfs':
+#                n_mbwfs[0]=int(val.split()[0].strip())
+#                n_mbwfs[1]=int(val.split()[1].strip())
 
                 
             # UNKNOWN PARAMETER
@@ -1314,23 +1310,30 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         print('Must specify DFT den to use DC!')
         quit()
 
-    # Setup and solve the Hamiltonian
-    start = time.time()
-    ad,dm=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,ad_file,mo_den=mo_den)
-    end = time.time()
-    print("Time to setup and solve H:",end-start)
-
-    # print out occupations and angular momentum
-    if prt_occ:
-        print_occ_ang_mom(orb_names,spin_names,ad,dm)
+    # Read in ad and eigensys?
+    den_mats=[]
+    if ad_file:
+        print('Reading in ad, eigensys, den_mats')
+        ad,eigensys,den_mats=read_at_diag(ad_file)
+    else:
+        
+        # Setup and solve the Hamiltonian
+        start = time.time()
+        ad=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=mo_den)
+        end = time.time()
+        print("Time to setup and solve H:",end-start)
 
     # Get eigenstates sorted by energies
     if prt_eigensys:
         start = time.time()
-        eigensys=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'],prt_ad=prt_ad)
+        eigensys,den_mats=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'],prt_ad=prt_ad)
         end = time.time()
         print("Time to get eigenstates sorted by energies:",end-start)
 
+    # print out occupations and angular momentum
+    if prt_occ:
+        print_occ_ang_mom(orb_names,spin_names,ad)
+        
     # Print out energies and degeneracies
     if prt_energy:
         start = time.time()
@@ -1356,17 +1359,17 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         end = time.time()
         print("Time to print dipole matrix elements:",end-start)
 
+
     # Print out real-space MB wavefunctions
     if prt_mbwfs:
         start = time.time()
-        print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_label)#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False,verbose=True):
+        print_mb_wfs(ad,wf_files,n_print,spin_names,orb_names,fops,eigensys,out_label,den_mats=den_mats)#,den_occ_cmplx,mbwfs_frmt,mb_mesh,out_label,center_in_cell=False,verbose=True):
         end = time.time()
         print("Time to print many-body wavefunctions:",end-start)
-
+    
         
     print('')
     print('Calculation completed.')        
-    
     
 
     return eigensys,ad,fops
