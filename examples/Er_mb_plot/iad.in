@@ -1,0 +1,46 @@
+# Files
+uijkl_file = UIJKL
+wan_file = wannier90_hr.dat
+dipol_file = wannier90_r.dat
+lat_param = 22.275240395 22.275240395 19.149321705  
+
+# Ordering should be spin up then spin down
+wf_files = wannier90_00001.xsf wannier90_00002.xsf wannier90_00003.xsf wannier90_00004.xsf wannier90_00005.xsf wannier90_00006.xsf wannier90_00007.xsf wannier90_00008.xsf wannier90_00009.xsf wannier90_00010.xsf wannier90_00011.xsf wannier90_00012.xsf wannier90_00013.xsf wannier90_00014.xsf
+
+ad_file = ad.h5
+
+# Operators
+spin_names = up
+orb_names = 0 1 2 3 4 5 6 7 8 9 10 11 12 13
+
+# Parts of the Hamiltonian
+Hkin = True
+Hint = True
+Hdc = False
+
+# Interaction parameters
+int_opt = 0
+flip = True
+dc_opt = 0
+cmplx = True
+
+# Chemical potential etc.
+const_occ = True
+tune_occ = False
+mu_init = -299.5
+target_occ = 11.0
+
+# Options for printing
+prt_dm = True
+prt_occ = True
+prt_energy = True
+prt_eigensys = True
+prt_state = True
+n_print = 0 5
+prt_mrchar = True
+
+prt_ad = True
+prt_mbwfs = True
+
+ml_order = 3 6 4 7 1 2 5 5 2 7 1 4 6 3
+prt_L = True

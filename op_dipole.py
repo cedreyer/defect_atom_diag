@@ -683,8 +683,11 @@ def spin_orbit_S2_op(fops):
     Sy=spin_orbit_S_op(fops,proj='y')
     Sz=spin_orbit_S_op(fops,proj='z')
 
-    S2_SO=(Sx+Sy+Sz)*(Sx+Sy+Sz)
-
+    Sp=Sx+1j*Sy
+    Sm=Sx-1j*Sy
+    
+    S2_SO=Sz*Sz + 0.5*(Sp*Sm + Sm*Sp)
+    
     return S2_SO
 
 #*************************************************************************************
@@ -754,14 +757,14 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
                     
         if proj=='+':
             L_SO=L_plus
-        if proj=='-':
+        elif proj=='-':
             L_SO=L_minus
-        if proj=='x':
+        elif proj=='x':
             L_SO=0.5*(L_plus+L_minus)
-        if proj=='y':
+        elif proj=='y':
             L_SO=-0.5*1j*(L_plus-L_minus)
         else:
-            print('INCORRECT SPIN PROJECTION!')
+            print('INCORRECT SPIN PROJECTION!',proj)
             raise
 
 
@@ -781,13 +784,12 @@ def spin_orbit_L2_op(fops,ml_order):
     Outputs:
     L2_SO: L^2 operator
     '''
-    Lx=spin_orbit_L_op(fops,ml_order,proj='z')
-    Ly=spin_orbit_L_op(fops,ml_order,proj='y')
     Lz=spin_orbit_L_op(fops,ml_order,proj='z')
+    Lp=spin_orbit_L_op(fops,ml_order,proj='+')
+    Lm=spin_orbit_L_op(fops,ml_order,proj='-')
 
-    L2_SO=(Lx+Ly+Lz)*(Lx+Ly+Lz)
-
+    L2_SO=Lz*Lz + 0.5*(Lp*Lm + Lm*Lp)
+    
     return L2_SO
 
 #*************************************************************************************
-

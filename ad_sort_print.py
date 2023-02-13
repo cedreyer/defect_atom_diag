@@ -381,7 +381,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
             den_mats.append(den_mat)
                 
             f_state.write('{:^16}'.format("MultiRef:"))
-            if np.abs(multiref.imag) < 1.0E-5:
+            if np.abs(multiref.imag) < 1.0E-10:
                 f_state.write('{:6.4f}\n '.format(multiref.real))
             else:
                 f_state.write('{:6.4f}\n '.format(multiref))
@@ -416,7 +416,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
                 for i in range(0,den_mat.shape[0]):
                     for j in range(0,den_mat.shape[1]):
 
-                        if den_mat[i,j].imag < 1.0E-10:
+                        if np.abs(den_mat[i,j].imag) < 1.0E-10:
                             f.write('{:.6f}\t '.format(den_mat[i,j].real))
                         else:
                             f.write('{:.6f}\t'.format(den_mat[i,j]))

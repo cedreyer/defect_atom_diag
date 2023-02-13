@@ -28,8 +28,14 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 
 # Main script to run atom_diag calculations
-# Cyrus Dreyer, Stony Brook University, Flatiorn CCQ
+# Cyrus Dreyer, Stony Brook University, Flatiorn CCQ, cyrus.dreyer@stonybrook.edu
 # 09/11/19
+
+# Other contributers:
+# Gabriel Lopez-Morales, CUNY
+# Malte Rosner, Radboud
+# Alexander Hampel, Flatiron CCQ
+# Danis Badrtdinov, Radboud
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
