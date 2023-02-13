@@ -21,7 +21,7 @@ from apply_sym_wan import *
 
 #*************************************************************************************
 # Print out some properties of the ground state
-def print_occ_ang_mom(orb_names,spin_names,ad,occ_print=True,s2_print=True,l2_print=False, spin_orbit=False):
+def print_occ_ang_mom(orb_names,spin_names,fops,ad,ml_order,prt_L):
     '''
     Print to the terminal some properties to check the run
     
@@ -42,38 +42,29 @@ def print_occ_ang_mom(orb_names,spin_names,ad,occ_print=True,s2_print=True,l2_pr
     beta = 1e5
     dm = atomic_density_matrix(ad, beta)
     
-    if occ_print:
-        print("Ground state occupancies")
-        for s in spin_names:
-            for o1 in orb_names:
-                print(o1,s, trace_rho_op(dm, n(s,o1) , ad))
+    print("Ground state occupancies")
+    for s in spin_names:
+        for o1 in orb_names:
+            print(o1,s, trace_rho_op(dm, n(s,o1) , ad))
+
+    # Spin general version
+    S2=spin_orbit_S2_op(fops)                
+    Sz=spin_orbit_S_op(fops,proj='z')
+    print("s(s+1) = ",trace_rho_op(dm, S2, ad))
+    print("Sz = ",trace_rho_op(dm, Sz, ad))
 
     # Angular momentum
-    if s2_print:
-
-        #if spin_orbit:
-        #    S2=spin_orbit_S2_op(spin_names,orb_names,fops)
-        #else:
-        #    try:
-        #        S2=S2_op(spin_names,len(orb_names),off_diag=True)
-        #    except:
-        #        S2=S2_op(spin_names,orb_names,off_diag=True)
-
+    if prt_L:
+        if not ml_order:
+            print('NEED TO SPECIFY ORERING OF ORBITALS!')
+            raise
+        
         # General version
-        S2=spin_orbit_S2_op(fops)
-        
-        
-        print("s(s+1) = ",trace_rho_op(dm, S2, ad))
+        L2=spin_orbit_L2_op(fops,ml_order)
+        Lz=spin_orbit_L_op(fops,ml_order,proj='z')
 
-    if l2_print:
-        if spin_orbit:
-            L2=spin_orbit_L2_op(spin_names,orb_names,fops)
-        else:
-            try:
-                L2=L2_op(spin_names,len(orb_names),off_diag=True)
-            except:
-                L2=L2_op(spin_names,orb_names,off_diag=True)
         print("l(l+1) = ",trace_rho_op(dm, L2, ad))
+        print("lz = ",trace_rho_op(dm, Lz, ad))
 
     return
 #*************************************************************************************
@@ -270,7 +261,7 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
 
 #*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,spin_orbit=False):
+def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,ml_order=[],verbose=True):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -291,45 +282,14 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     eigensys: List containing states, energies, and other info
     
     '''
-
-    # Get spin eigenvalues, may be useful. No should be general for SO
-    # case IF first half of orbitals are interpreted as spin up and
-    # second spin down
-    #if spin_orbit:
-    #    S2=spin_orbit_S2_op(spin_names,orb_names,fops)
-    #    Sz=spin_orbit_Sz_op(spin_names,orb_names,fops,proj='z')
-    #else:
-    #    try:
-    #        S2 = S2_op(spin_names, len(orb_names), off_diag=True)
-    #        Sz=S_op('z', spin_names, len(orb_names), off_diag=True)
-    #    except:
-    #        S2 = S2_op(spin_names, orb_names, off_diag=True)
-    #        Sz=S_op('z', spin_names, orb_names, off_diag=True)
-        
-    # Replace quantum_number_eigenvalues function with get_exp_vals so we can do it with SO. Should work the same.
-    #Sz = make_operator_real(Sz)
-    #S2 = make_operator_real(S2)
-    #S2_states = quantum_number_eigenvalues(S2, ad)
-    #Sz_states = quantum_number_eigenvalues(Sz, ad)
-
     # General spin operators. Should work with spinful or spinless as
     # long as first half spin up, second half spin down.
     Sz=spin_orbit_S_op(fops,proj='z')
     S2=spin_orbit_S2_op(fops)
-
-    # This is slow for large Hilbert spaces
-    Sz_states=get_exp_vals(ad,spin_names,orb_names,fops,Sz)
-    S2_states=get_exp_vals(ad,spin_names,orb_names,fops,S2)
     
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     
-    # For printing out the density matrix
-    if prt_dm:
-        with open(out_label+'den_mat.dat','w') as f:
-            f.write('Density Matrices\n')
-            f.write('\n')
-
     den_mats=[]    
     n_eigenvec=0.0
     eigensys=[]
@@ -375,33 +335,47 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
         for ind in range(0,ad.get_subspace_dim(sub)):
 
             eng=ad.energies[sub][ind]
-            spin=round(float(S2_states[sub][ind]),3)
-            ms=round(float(Sz_states[sub][ind]),3)
+            #spin=round(float(S2_states[sub][ind]),3)
+            #ms=round(float(Sz_states[sub][ind]),3)
             
-            eigensys.append([sub_state[ind],eng,spin,n_eigenvec,ms.real])
+            eigensys.append([sub_state[ind],eng,n_eigenvec])
                 
             # Keep track of the absolute number of eigenstate
             n_eigenvec += 1
 
     # Sort by energy
     eigensys.sort(key=take_second)
-    
+
+    if verbose:
+        print('Finished sorting states')
+        
     # Make sure we are not trying to print more states than there are
     if n_print[1]>=len(eigensys):
         n_print[1]=len(eigensys)-1    
 
+    # Slice eigensys to just states of interest 
+    eigensys=eigensys[n_print[0]:n_print[1]+1]
+        
     # print info for given number of states
     f_state= open(out_label+"eigensys.dat","w+")
 
     for ii in range(n_print[0],n_print[1]+1):
+
+        # Only get spin info for states of interest
+        spin=get_exp_val(ad,eigensys[ii][2],S2)
+        ms=get_exp_val(ad,eigensys[ii][2],Sz)
+
+        # Restore previous order
+        eigensys[ii]=[eigensys[ii][0],eigensys[ii][1],spin.real,eigensys[ii][2],ms.real]
+        
         # Write out info
         f_state.write('%10s %10s %10s %10s %10s %10s %10s %10s' % \
                       ("Energy:", np.round(float(eigensys[ii][1]),6), \
                        "HS eig num:",eigensys[ii][3],\
-                       "s(s+1):", eigensys[ii][2], \
+                       "s(s+1):", np.round(float(eigensys[ii][2]),4), \
                        "ms:",np.round(float(eigensys[ii][4]),3)))
         
-        # Optional stuff
+        # Multireference character
         if prt_mrchar: # Character of mb state
             den_mat,multiref=check_multi_ref_state(ad,spin_names,orb_names,fops,int(eigensys[ii][3]))
             den_mats.append(den_mat)
@@ -414,14 +388,31 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
         else:
             f_state.write('\n')
 
-        if prt_dm: # Density matrix
-            if not prt_mrchar:
-                _dm=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[int(eigensys[ii][3]),int(eigensys[ii][3])+1])
-                den_mats.append(_dm[0])
-                den_mat=den_mats[-1]
-                
-            with open(out_label+'den_mat.dat','a') as f:
-                f.write('state: '+str(n_eigenvec)+'     eng: '+str(eng)+'     s(s+1): '+str(spin)+'     ms: '+str(ms.real)+'\n')
+        # State eigenvector
+        if prt_state:
+            f_state.write('%10s %s\n' % ("State:",eigensys[ii][0]))
+            f_state.write("\n")
+
+    f_state.close()
+
+    if verbose:
+        print('Finished printing states')
+
+
+    # Calculate and print the density matrix
+    if prt_dm: 
+        if not prt_mrchar:
+            den_mats=get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[n_print[0],n_print[1]+1])
+            
+        with open(out_label+'den_mat.dat','w') as f:
+            f.write('Density Matrices\n')
+            f.write('\n')
+
+            for iden,den_mat in enumerate(den_mats):            
+                f.write('state: '+str(eigensys[iden][3])\
+                        +'     eng: '+str(eigensys[iden][1])\
+                        +'     s(s+1): '+str(np.round(float(eigensys[iden][2]),4)) \
+                        +'     ms: '+str(np.round(float(eigensys[iden][4]),4))+'\n')
                 for i in range(0,den_mat.shape[0]):
                     for j in range(0,den_mat.shape[1]):
 
@@ -433,14 +424,7 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
                     f.write('\n')
                 f.write('\n')
 
-
-                
-        if prt_state:
-            f_state.write('%10s %s\n' % ("State:",eigensys[ii][0]))
-            f_state.write("\n")
-
-    f_state.close()
-
+    
     # Save the AtomDiag object
     if prt_ad:
         print_at_diag(ad,out_label,eigensys,den_mats)

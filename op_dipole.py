@@ -54,7 +54,6 @@ def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
 
             n_eig+=1
 
-            print(n_eig,'/',ad.full_hilbert_space_dim)
         exp_vals.append(exp_val)
         
     return exp_vals
@@ -76,8 +75,8 @@ def get_exp_val(ad,state,operator):
     '''
         
     state_eig = np.zeros((int(ad.full_hilbert_space_dim)))
-    state_eig[int(n_eig)]=1.0        
-    exp_val[ind]=np.dot(state_eig.T,act(operator,state_eig,ad))
+    state_eig[int(state)]=1.0        
+    exp_val=np.dot(state_eig.T,act(operator,state_eig,ad))
 
         
     return exp_val
@@ -101,7 +100,7 @@ def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=Fa
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     den_mats=[]
-    for state in range(n_mbwfs[0],n_mbwfs[1]+1):
+    for state in range(n_mbwfs[0],n_mbwfs[1]):
 
         if state == len(eigensys):
             break
@@ -691,10 +690,11 @@ def spin_orbit_S2_op(fops):
 #*************************************************************************************
 
 #*************************************************************************************
-# Makes an S2 operator if spin is not explicitly given
-def spin_orbit_L2_op(spin_names,orb_names,fops):
+# Makes an L operator. Only assumption is that first half are spin up,
+# second half are spin down
+def spin_orbit_L_op(fops,ml_order,proj='z'):
     '''
-    Defines a L2 operator
+    Defines a L operator
 
     Inputs:
     spin_names: List of spins
@@ -702,9 +702,92 @@ def spin_orbit_L2_op(spin_names,orb_names,fops):
     fops: Many-body operators
 
     Outputs:
-    S2_SO: S2 operator
+    L_SO: L operator
 
     '''
-    L2_SO=Operator()
+
+    n_fops=len(fops)
+
+    if int(n_fops/2)==1: # s orbitals
+        ll=0
+    elif int(n_fops/2)==3: # p orbitals
+        ll=1
+    elif int(n_fops/2)==5: # d orbitals
+        ll=2
+    elif int(n_fops/2)==7: # f orbitals
+        ll=3
+    else:
+        print('INVALID NUMBER OF ORBITALS!')
+        raise
+        
+        
+    # Generalized up and down spin
+    up_fops=fops[0:int(n_fops/2)]
+    dn_fops=fops[int(n_fops/2):n_fops+1]
+
+    # Convert to basis
+    ml_basis_up=np.zeros([int(n_fops/2),int(n_fops/2)])
+    ml_basis_dn=np.zeros([int(n_fops/2),int(n_fops/2)])
+    up_ml_ord=np.array(ml_order[0:int(n_fops/2)])-1
+    dn_ml_ord=np.array(ml_order[int(n_fops/2):n_fops+1])-1
+    
+    up_fops = [up_fops[i] for i in up_ml_ord]
+    dn_fops = [dn_fops[i] for i in dn_ml_ord]
+
+    L_SO=Operator()
+    if proj=='z':
+        for o1 in range(int(n_fops/2)):
+            L_SO+=1.0j*c_dag(up_fops[o1][0],up_fops[o1][1])*c(up_fops[o1][0],up_fops[o1][1])
+            L_SO+=1.0j*c_dag(dn_fops[o1][0],dn_fops[o1][1])*c(dn_fops[o1][0],dn_fops[o1][1])
+
+    else: 
+        L_plus=Operator()
+        L_minus=Operator()
+        for ml1 in range(-ll,ll+1):
+            for ml2 in range(-ll,ll+1):
+                if ml1==ml2+1:
+                    L_plus+=np.sqrt(ll*(ll+1)-ml2*(ml2+1))*c_dag(up_fops[ml1+ll][0],up_fops[ml1+ll][1])*c(up_fops[ml2+ll][0],up_fops[ml2+ll][1])
+                    L_plus+=np.sqrt(ll*(ll+1)-ml2*(ml2+1))*c_dag(dn_fops[ml1+ll][0],dn_fops[ml1+ll][1])*c(dn_fops[ml2+ll][0],dn_fops[ml2+ll][1])
+                elif ml1==ml2-1:
+                    L_minus+=np.sqrt(ll*(ll+1)-ml2*(ml2-1))*c_dag(up_fops[ml1+ll][0],up_fops[ml1+ll][1])*c(up_fops[ml2+ll][0],up_fops[ml2+ll][1])
+                    L_minus+=np.sqrt(ll*(ll+1)-ml2*(ml2-1))*c_dag(dn_fops[ml1+ll][0],dn_fops[ml1+ll][1])*c(dn_fops[ml2+ll][0],dn_fops[ml2+ll][1])
+                    
+        if proj=='+':
+            L_SO=L_plus
+        if proj=='-':
+            L_SO=L_minus
+        if proj=='x':
+            L_SO=0.5*(L_plus+L_minus)
+        if proj=='y':
+            L_SO=-0.5*1j*(L_plus-L_minus)
+        else:
+            print('INCORRECT SPIN PROJECTION!')
+            raise
+
+
+    return L_SO 
+#*************************************************************************************
+
+#*************************************************************************************
+# Makes an S2 operator if spin is not explicitly given
+def spin_orbit_L2_op(fops,ml_order):
+    '''
+    Defines a L^2 operator assuming the first half of the orbitals are spin up and the second half
+    are spin down.
+
+    Inputs:
+    fops: Many-body operators
+
+    Outputs:
+    L2_SO: L^2 operator
+    '''
+    Lx=spin_orbit_L_op(fops,ml_order,proj='z')
+    Ly=spin_orbit_L_op(fops,ml_order,proj='y')
+    Lz=spin_orbit_L_op(fops,ml_order,proj='z')
+
+    L2_SO=(Lx+Ly+Lz)*(Lx+Ly+Lz)
 
     return L2_SO
+
+#*************************************************************************************
+

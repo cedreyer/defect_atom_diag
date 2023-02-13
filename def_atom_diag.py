@@ -978,11 +978,11 @@ def read_at_diag(ad_file):
 
 #*************************************************************************************
 # Read in the input file
-def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',wf_files='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0], \
+def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',wf_files='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0],ml_order=[], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
-                prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,\
+                prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,prt_L=False,\
                 mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12],prt_mbwfs=False):
 
     '''
@@ -1117,7 +1117,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='True' or val=='T' or val=='true':
                     int_in['cmplx']=True
                     
-            # TEST: change basis
+            # Change basis
             elif var=='diag_basis':
                 if val=='True' or val=='T' or val=='true':
                     int_in['diag_basis']=True
@@ -1143,6 +1143,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='prt_occ':
                 if val=='True' or val=='T' or val=='true':
                     prt_occ=True
+            elif var=='prt_L':
+                if val=='True' or val=='T' or val=='true':
+                    prt_L=True
             elif var=='prt_energy':
                 if val=='True' or val=='T' or val=='true':
                     prt_energy=True
@@ -1178,6 +1181,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='True' or val=='T' or val=='true':
                     verbose=True
 
+            elif var=='ml_order':
+                for ml in str(val).split():
+                    ml_order.append(int(ml))
+
             # For dipole calculations
             elif var=='prt_dipol':
                 if val=='True' or val=='T' or val=='true':
@@ -1196,9 +1203,6 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
             elif var=='prt_mbwfs':
                 if val=='True' or val=='T' or val=='true':
                     prt_mbwfs=True
-#            elif var=='n_mbwfs':
-#                n_mbwfs[0]=int(val.split()[0].strip())
-#                n_mbwfs[1]=int(val.split()[1].strip())
 
                 
             # UNKNOWN PARAMETER
@@ -1323,16 +1327,18 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         end = time.time()
         print("Time to setup and solve H:",end-start)
 
+    # print out occupations and angular momentum
+    if prt_occ:
+        print_occ_ang_mom(orb_names,spin_names,fops,ad,ml_order,prt_L)
+        
     # Get eigenstates sorted by energies
     if prt_eigensys:
         start = time.time()
-        eigensys,den_mats=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,target_mu=mu_in['target_occ'],prt_ad=prt_ad)
+        eigensys,den_mats=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,\
+                                      prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,\
+                                      target_mu=mu_in['target_occ'],prt_ad=prt_ad,ml_order=ml_order)
         end = time.time()
         print("Time to get eigenstates sorted by energies:",end-start)
-
-    # print out occupations and angular momentum
-    if prt_occ:
-        print_occ_ang_mom(orb_names,spin_names,ad)
         
     # Print out energies and degeneracies
     if prt_energy:
