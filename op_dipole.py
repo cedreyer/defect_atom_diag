@@ -711,17 +711,24 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
 
     n_fops=len(fops)
 
-    if int(n_fops/2)==1: # s orbitals
-        ll=0
-    elif int(n_fops/2)==3: # p orbitals
-        ll=1
-    elif int(n_fops/2)==5: # d orbitals
-        ll=2
-    elif int(n_fops/2)==7: # f orbitals
-        ll=3
-    else:
-        print('INVALID NUMBER OF ORBITALS!')
-        raise
+    ll=int((n_fops/2-1)/2)
+    if ll < 0 or ll > 3:
+         print('INVALID NUMBER OF ORBITALS! l=',ll)
+         raise
+     
+
+    
+#    if int(n_fops/2)==1: # s orbitals
+#        ll=0
+#    elif int(n_fops/2)==3: # p orbitals
+#        ll=1
+#    elif int(n_fops/2)==5: # d orbitals
+#        ll=2
+#    elif int(n_fops/2)==7: # f orbitals
+#        ll=3
+#    else:
+#        print('INVALID NUMBER OF ORBITALS!')
+#        raise
         
         
     # Generalized up and down spin
@@ -740,8 +747,9 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
     L_SO=Operator()
     if proj=='z':
         for o1 in range(int(n_fops/2)):
-            L_SO+=1.0j*c_dag(up_fops[o1][0],up_fops[o1][1])*c(up_fops[o1][0],up_fops[o1][1])
-            L_SO+=1.0j*c_dag(dn_fops[o1][0],dn_fops[o1][1])*c(dn_fops[o1][0],dn_fops[o1][1])
+            m=o1-ll
+            L_SO+=m*1.0j*c_dag(up_fops[o1][0],up_fops[o1][1])*c(up_fops[o1][0],up_fops[o1][1])
+            L_SO+=m*1.0j*c_dag(dn_fops[o1][0],dn_fops[o1][1])*c(dn_fops[o1][0],dn_fops[o1][1])
 
     else: 
         L_plus=Operator()
