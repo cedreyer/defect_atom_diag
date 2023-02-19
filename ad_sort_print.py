@@ -61,10 +61,14 @@ def print_occ_ang_mom(orb_names,spin_names,fops,ad,ml_order,prt_L):
         
         # General version
         L2=spin_orbit_L2_op(fops,ml_order)
+        Lx=spin_orbit_L_op(fops,ml_order,proj='x')
+        Ly=spin_orbit_L_op(fops,ml_order,proj='y')
         Lz=spin_orbit_L_op(fops,ml_order,proj='z')
 
         print("l(l+1) = ",trace_rho_op(dm, L2, ad))
-        print("lz = ",trace_rho_op(dm, Lz, ad))
+        print("Lx = ",trace_rho_op(dm, Lx, ad))
+        print("Ly = ",trace_rho_op(dm, Ly, ad))
+        print("Lz = ",trace_rho_op(dm, Lz, ad))
 
     return
 #*************************************************************************************

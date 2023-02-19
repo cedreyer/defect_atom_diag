@@ -715,21 +715,6 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
     if ll < 0 or ll > 3:
          print('INVALID NUMBER OF ORBITALS! l=',ll)
          raise
-     
-
-    
-#    if int(n_fops/2)==1: # s orbitals
-#        ll=0
-#    elif int(n_fops/2)==3: # p orbitals
-#        ll=1
-#    elif int(n_fops/2)==5: # d orbitals
-#        ll=2
-#    elif int(n_fops/2)==7: # f orbitals
-#        ll=3
-#    else:
-#        print('INVALID NUMBER OF ORBITALS!')
-#        raise
-        
         
     # Generalized up and down spin
     up_fops=fops[0:int(n_fops/2)]
