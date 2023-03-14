@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # For cluster:
-#module --force purge
-#module load triqs triqs-tprf
+module --force purge
+module load triqs triqs-tprf
 
-#mpirun -np 1 python /Users/cdreyer/Dropbox/CCQ_SB_Research/NV/atom_diag/defect_atom_diag/def_atom_diag.py
+source /mnt/home/cdreyer/apps/venvs/at_diag/bin/activate
 
-python /Users/cdreyer/Dropbox/CCQ_SB_Research/NV/atom_diag/defect_atom_diag/def_atom_diag.py
+mpirun -np 1 python /mnt/home/cdreyer/apps/defect_atom_diag/def_atom_diag.py
+
+#python /Users/cdreyer/Dropbox/CCQ_SB_Research/NV/atom_diag/defect_atom_diag/def_atom_diag.py
