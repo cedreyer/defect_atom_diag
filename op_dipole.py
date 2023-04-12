@@ -235,12 +235,13 @@ def read_rij(r_wan_file,n_orb,lat_param):
     r_file.close()
 
     # I think we should make sure that diagonal elements are zero. Thus, we are shifting
-    for orb in range(n_orb):
-        for idir in range(3):
-            rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])
-
-            #print('rii',orb,idir,lat_param[idir], rij[idir,orb,orb])
-            
+    if np.linalg.norm(lat_param) > 1.0e-10:
+        for orb in range(n_orb):
+            for idir in range(3):
+                rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])                                                                                               
+    else:                                                                                                                                                                 
+        print('WARNING: No lattice parameters specified or invalid. Wannier functions not shifted to home cell.')
+        
     return rij
 
 
