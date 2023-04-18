@@ -236,6 +236,7 @@ def read_rij(r_wan_files,n_orb,lat_param):
         
         r_file.close()
 
+        
         # I think we should make sure that diagonal elements are zero. Thus, we are shifting. SOMETHING WRONG WITH THIS...
         if np.linalg.norm(lat_param) > 1.0e-10:
             for orb in range(n_orb):
