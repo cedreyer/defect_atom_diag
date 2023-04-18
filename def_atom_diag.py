@@ -158,16 +158,13 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     eps_eff=int_in['eps_eff']
     tij=int_in['tij']
 
-     uijkl=int_in['uijkl']
-     vijkl=int_in['vijkl']
+    # To include spin polarization, uijkl and vijkl will be lists with either 1 or 4 elements
+    uijkl=int_in['uijkl']
+    vijkl=int_in['vijkl']
     
     if len(int_in['uijkl']) == 1:        
-        #uijkl=int_in['uijkl'][0]
-        #if int_in['vijkl']: vijkl = int_in['vijkl'][0]
         spin_pol=False
     else:
-        #uijkl=int_in['uijkl']
-        #vijkl = int_in['vijkl']
         spin_pol=True
 
         # Only the full interaction for now with spin polarization!
@@ -189,7 +186,7 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
-        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
+        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
         print('CHANGED TO BAND BASIS!')
 
         # Construct U matrix for d orbitals
@@ -204,27 +201,28 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
                                        [0, 1, 0, 0, 0],
                                        [0, 0, 0, 1, 0]])
 
-            uijkl=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=1, basis='spherical', T=rot_def_to_w90.T)
+            for iu,u in enumerate(uijkl):
+                uijkl[iu]=U_matrix(2, radial_integrals=None, U_int=Uavg[iu], J_hund=1, basis='spherical', T=rot_def_to_w90.T)
 
 
     # Choices to average the uijkl matrix
     if int_opt == 1: # Use average U, U', and J
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False)
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False)
     elif int_opt == 2: # Use two index Uij and Ji
-        uij,jij,uijkl=make_two_ind_U(n_orb,uijkl[0],verbose=False)
+        uij,jij,uijkl=make_two_ind_U_sp(n_orb,uijkl,verbose=False)
     # Only diagonal
     elif int_opt == 3:
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False,U_elem=[True,False,False])
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False,U_elem=[True,False,False])
     # Only density-density
     elif int_opt == 4:
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False,U_elem=[True,True,False])
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False,U_elem=[True,True,False])
     # U and J
     elif int_opt == 5:
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False,U_elem=[True,False,True])
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False,U_elem=[True,False,True])
     # Construct U matrix for d orbitals
     elif int_opt == 6:
         print('SLATER U, Wan basis!!!!')
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False)
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False)
         # Basis from wannierization is z2, xz,yz,x2-y2,xy
         # Triqs = xy,yz,z^2,xz,x^2-y^2
         rot_def_to_w90 = np.linalg.inv(np.array([[0, 0, 0, 0, 1],
@@ -234,21 +232,31 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
                                    [0, 0, 0, 1, 0]]))
 
 
-        uijkl_tmp=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=Javg, basis='cubic')
-        uijkl=transform_U_matrix(uijkl_tmp,rot_def_to_w90)
+        for iu,u in enumerate(uijkl):
+            uijkl_tmp=U_matrix(2, radial_integrals=None, U_int=Uavg[iu], J_hund=Javg[iu], basis='cubic')
+            uijkl[iu]=transform_U_matrix(uijkl_tmp,rot_def_to_w90)
 
     # Construct U matrix for d orbitals
     elif int_opt == 7:
         print('SLATER U, triqs basis!!!!')
-        Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl[0],verbose=False)
+        Uavg,Uprime,Javg,uijkl=avg_U_sp(n_orb,uijkl,verbose=False)
         # Basis from wannierization is z2, xz,yz,x2-y2,xy
         # Triqs = xy,yz,z^2,xz,x^2-y^2
-        uijkl=U_matrix(2, radial_integrals=None, U_int=Uavg, J_hund=Javg, basis='cubic')
+
+        for iu,u in enumerate(uijkl):
+            uijkl[iu]=U_matrix(2, radial_integrals=None, U_int=Uavg[iu], J_hund=Javg[iu], basis='cubic')
 
 
     elif int_opt == 8: # Use two index Uij and Ji with effective eps_eff (Danis)
-        uij,jij,uijkl=effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False)
 
+        uij=[]
+        jij=[]
+        for iu,u in enumerate(uijkl):
+            uij_iu,jij_iu,uijkl_iu=effective_screening(n_orb,uijkl[iu],vijkl[iu],eps_eff,verbose=False)
+            uij.append(uij_iu)
+            jij.append(jij_iu)
+            uijkl[iu]=uijkl_iu
+            
 
 
     #Print U matrix
@@ -262,7 +270,8 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     #                              .format(ii,jj,kk,ll,np.real(uijkl[ii,jj,kk,ll])))
 
 
-
+    # SPIN POL UP TO HERE
+    
     # Check the symmetry of the U matrix
     if int_in['sym']:
         check_sym_u_mat(uijkl,n_orb)
@@ -273,9 +282,9 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     else:
         # For backwards compatibility, use either number of orbitals or list
         try:
-            H_int = h_int_slater(spin_names, len(orb_names), uijkl, off_diag=True,complex=True)
+            H_int = h_int_slater(spin_names, len(orb_names), uijkl[0], off_diag=True,complex=True)
         except:
-            H_int = h_int_slater(spin_names, orb_names, uijkl, off_diag=True,complex=True)
+            H_int = h_int_slater(spin_names, orb_names, uijkl[0], off_diag=True,complex=True)
         
     if verbose:
         print('')
@@ -290,14 +299,14 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
 #*************************************************************************************
 # Convert basis of uijkl to wan. diagonal
-def wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=[],spin_pol=False):
+def wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=[]):
     '''
     Convert Hamiltonian to basis where tij is diagonal
 
     Inputs:
     H_elmt: 'tij': Just convert hoppings, 'both': convert both
-    tij: Hopping matrix, np array
-    uijkl: Interaction matrix, np array
+    tijs: Hopping matrix, np array
+    uijkls: Interaction matrix, np array
 
     Outputs:
     tij_conv: diagonalized tij
@@ -306,7 +315,7 @@ def wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=[],spin_pol=False):
     '''
 
     tij_conv=[]
-    for t in tij:
+    for tij in tijs:
         evals,evecs=np.linalg.eig(tij)
         print('wannier eval order:',evals)
         tij_conv.append(np.multiply(np.identity(n_orb),evals))
@@ -318,18 +327,12 @@ def wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=[],spin_pol=False):
 
     if H_elmt == 'both':
 
-        #if spin_pol:
         uijkl_conv=[]
-        for u in uijkl:
+        for uijkl in uijkls:
             #uijkl_conv=uijkl
             basis_trans=np.linalg.inv(evecs)#evecs.T????
             uijkl_conv.append(transform_U_matrix(uijkl,basis_trans))
             #print('WARNING: Band basis with spin polarization not tested!') 
-
-        #else:
-        #    uijkl_conv=uijkl
-        #    basis_trans=np.linalg.inv(evecs)#evecs.T????
-        #    uijkl_conv=transform_U_matrix(uijkl,basis_trans)
 
 
     return tij_conv, uijkl_conv
@@ -338,7 +341,7 @@ def wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=[],spin_pol=False):
 
 #*************************************************************************************
 # Check if the  U matrix obeys symmetry of single particle reps
-def check_sym_u_mat(uijkl,n_orb):
+def check_sym_u_mat(uijkls,n_orb):
     '''
     Checks to see if U matrix is consistent with symmetry of single
     particle reps
@@ -353,16 +356,18 @@ def check_sym_u_mat(uijkl,n_orb):
 
     # Get reps from reps.dat
     dij=construct_dij(n_orb,"reps.dat")
-    i_rep=0
-    print("Check if uijkl obeys sym of reps:")
-    for rep in dij:
 
-        # Transform U matrix
-        Tij=rep[1]
-        uijkl_t=transform_U_matrix(uijkl,Tij)
+    for uijkl in uijkls:
+        i_rep=0
+        print("Check if uijkl obeys sym of reps:")
+        for rep in dij:
 
-        print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(np.real(uijkl-uijkl_t))))
-        i_rep+=1
+            # Transform U matrix
+            Tij=rep[1]
+            uijkl_t=transform_U_matrix(uijkl,Tij)
+
+            print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(np.real(uijkl-uijkl_t))))
+            i_rep+=1
 
     return
 #*************************************************************************************
@@ -507,9 +512,20 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
     dc_x_wt=int_in['dc_x_wt']
     dc_opt=int_in['dc_opt']
     eps_eff=int_in['eps_eff']
-    uijkl=int_in['uijkl'][0]
-    if int_in['vijkl']: vijkl = int_in['vijkl'][0]
+    uijkl=int_in['uijkl']
+    vijkl = int_in['vijkl']
 
+    if len(int_in['uijkl']) == 1:        
+        spin_pol=False
+    else:
+        spin_pol=True
+
+        # Only the full interaction for now with spin polarization!
+        if dc_opt != 0:
+            print('ERROR: No use of int_opt other than 0 for spin polarization!')
+            quit()
+
+    
 
     
     n_orb=len(orb_names)
@@ -520,7 +536,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
-        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
+        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
 
     if dc_opt < 0: # Use averaged density
         avg_den=np.trace(mo_den)/n_orb
@@ -537,7 +553,9 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
         # Convert to wannier basis
         #wan_den=np.dot(np.dot(np.linalg.inv(evecs.T),mo_den),np.linalg.inv(evecs))
         evecs=np.matrix(evecs)
-        wan_den=np.dot(np.dot(np.linalg.inv(evecs.H),mo_den),np.linalg.inv(evecs)) 
+        wan_den=[]
+        for mo in mo_den:
+            wan_den.append(np.dot(np.dot(np.linalg.inv(evecs.H),mo),np.linalg.inv(evecs)))
         
     # Mixing of exchange part
     print("DC mix:",dc_x_wt)
@@ -558,69 +576,122 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
         Uavg,Uprime,Javg,uijkl=avg_U(n_orb,uijkl,verbose=False,U_elem=[True,False,True])
 
     elif dc_opt == 8: # Use two index Uij and Ji with effective eps_eff (Danis)
-        uij,jij,uijkl=effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False)
+
+        uij=[]
+        jij=[]
+        for iu,u in enumerate(uijkl):
+            uij_iu,jij_iu,uijkl_iu=effective_screening(n_orb,uijkl[iu],vijkl[iu],eps_eff,verbose=False)
+            uij.append(uij_iu)
+            jij.append(jij_iu)
+            uijkl[iu]=uijkl_iu
+
+        #uij,jij,uijkl=effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False)
 
     if verbose:
         print('')
         print("DC:")
 
 
-    H_dc=Operator()
-    for s in spin_names:
-        for i in range(0,n_orb):
-            for j in range(0,n_orb):
-                fock=0
-                for k in range(0,n_orb):
-                    for l in range(0,n_orb):
-                        fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
-
-                        #TEST
-                        # STILL TESTING FOR CMPLX
-                        # TEST: See what terms are included
-                        if verbose:
-                            if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.00001:
-                                print(s,i,j,k,l,uijkl[i,l,j,k]-dc_x_wt*uijkl[i,l,k,j]* wan_den[k,l])
-
-                # For both integer and string orbital names
-                if isinstance(orb_names[0], int):
-                    H_dc += -fock * c_dag(s,i) * c(s,j)
-                else:
-                    H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
-
-                if verbose:
-                    if abs(fock) > 1.0e-1:
-                                print(s,i,j,-fock)
-
-    # From Karsten and Flensberg Eq. 4.22 and 4.23
+    H_dc=get_DC_from_uijkl(spin_names,orb_names,fops,uijkl,dc_x_wt,wan_den,spin_pol)
+#    H_dc=Operator()
 #    for s in spin_names:
 #        for i in range(0,n_orb):
 #            for j in range(0,n_orb):
+#                fock=0
 #                for k in range(0,n_orb):
 #                    for l in range(0,n_orb):
-#                        # First three terms: Hartree, last three: Fock
-#                        H_dc += -0.5*uijkl[i,j,k,l]*( \
-#                                                      wan_den[j,l]*c_dag(s,str(i))*c(s,str(k)) \
-#                                                      + wan_den[i,k]*c_dag(s,str(j))*c(s,str(l)) \
-#                                                      - wan_den[i,l]*c_dag(s,str(j))*c(s,str(k)) \
-#                                                      - wan_den[j,k]*c_dag(s,str(i))*c(s,str(l)) )
+#                        fock += 1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l] # From Szabo and Ostland
+
+#                        # TEST: See what terms are included
+#                        if verbose:
+#                            if abs(1.0*(uijkl[i,l,j,k] - dc_x_wt*uijkl[i,l,k,j] ) * wan_den[k,l]) > 0.00001:
+#                                print(s,i,j,k,l,uijkl[i,l,j,k]-dc_x_wt*uijkl[i,l,k,j]* wan_den[k,l])
+
+#                # For both integer and string orbital names
+#                if isinstance(orb_names[0], int):
+#                    H_dc += -fock * c_dag(s,i) * c(s,j)
+#                else:
+#                    H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
+
+#                if verbose:
+#                    if abs(fock) > 1.0e-1:
+#                                print(s,i,j,-fock)
+
 
     H += H_dc
 
-    #if verbose:
-        #print("DC:")
-    #    print(H_dc)
-    #    print('')
-        
-        #for ii in range(0,n_orb):
-        #    for jj in range(0,n_orb):
-        #        for kk in range(0,n_orb):
-        #            for ll in range(0,n_orb):
-        #                print(ii,jj,kk,ll,uijkl[ii,jj,kk,ll])
-
-    #quit()
 
     return H
 #*************************************************************************************
+
+#*************************************************************************************
+# Calculate the H_dc from a give uijkl, allow for spin_pol
+def get_DC_from_uijkl(spin_names,orb_names,fops,uijkls,dc_x_wt,wan_den,spin_pol,verbose=False):
+
+    '''
+    '''
+
+    n_orb=len(orb_names)
+    H_dc=Operator()
+
+    if spin_pol:
+
+        wan_del_t=wan_den[0]+wan_den[1]
+        
+        for is1,s in enumerate(spin_names):
+            is2=1-is1
+            
+            for i in range(0,n_orb):
+                for j in range(0,n_orb):
+                    fock=0
+                    for k in range(0,n_orb):
+                        for l in range(0,n_orb):
+                            # From Szabo and Ostland Eq. 3.349 pg 214 (unrestricted expression), and Miguel :). Factor of 2 to cancel the default dc_x_wt=0.5
+                            fock_term = uijkls[2][i,l,j,k]*wan_den[is2][k,l]+uijkls[is1][i,l,j,k]*wan_den[is1][k,l] - 2.0*dc_x_wt*uijkls[is1][i,l,k,j]*wan_den[is1][k,l] 
+
+                            fock += fock_term
+                            # TEST: See what terms are included
+                            if verbose:
+                                if abs(fock_term) > 0.00001:
+                                    print(s,i,j,k,l,fock_term)
+
+                    # For both integer and string orbital names
+                    if isinstance(orb_names[0], int):
+                        H_dc += -fock * c_dag(s,i) * c(s,j)
+                    else:
+                        H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
+                        
+                    if verbose:
+                        if abs(fock) > 1.0e-1:
+                            print(s,i,j,-fock)
+
+                    
+    else:
+        for s in spin_names:
+            for i in range(0,n_orb):
+                for j in range(0,n_orb):
+                    fock=0
+                    for k in range(0,n_orb):
+                        for l in range(0,n_orb):
+                            fock += 1.0*(uijkls[0][i,l,j,k] - dc_x_wt*uijkls[0][i,l,k,j] ) * wan_den[0][k,l] # From Szabo and Ostland
+
+                            # TEST: See what terms are included
+                            if verbose:
+                                if abs(1.0*(uijkls[0][i,l,j,k] - dc_x_wt*uijkls[0][i,l,k,j] ) * wan_den[0][k,l]) > 0.00001:
+                                    print(s,i,j,k,l,uijkls[0][i,l,j,k]-dc_x_wt*uijkls[0][i,l,k,j]* wan_den[0][k,l])
+
+                    # For both integer and string orbital names
+                    if isinstance(orb_names[0], int):
+                        H_dc += -fock * c_dag(s,i) * c(s,j)
+                    else:
+                        H_dc += -fock * c_dag(s,str(i)) * c(s,str(j))
+
+                    if verbose:
+                        if abs(fock) > 1.0e-1:
+                            print(s,i,j,-fock)
+
+
+    return H_dc
 
 #*************************************************************************************
 # Calculate the MF HF coulomb part and use it as DC
@@ -659,6 +730,12 @@ def add_hartree_fock_DC(H,spin_names,orb_names,fops,int_in,target_occ):
     if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,int_in['tij'],H_elmt='tij')
 
+
+    if len(uijkl) > 1:
+        print('ERROR: HF solver does not work with spin polarization')
+    else:
+        tij=tij[0]
+        
     h_loc=np.kron(np.identity(2),tij)
     nb=4
     hop={(0,0,0):h_loc}
@@ -713,10 +790,16 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
 
     '''
     
+
+    if len(int_in['uijkl']) > 1:
+        print('ERROR: No dimer DC for spin polarized interaction!')
+        quit()
+
     uijkl=int_in['uijkl']
     tij=int_in['tij']
     n_orb=len(orb_names)
 
+        
     # Get evecs to eventually transform back
     if not int_in['diag_basis']:
         evals,evecs=np.linalg.eig(int_in['tij'])
@@ -725,10 +808,10 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
         uijkl=flip_u_index(n_orb,uijkl)
 
     # Basis change to band
-    tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkl=uijkl)
+    tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
 
     # Assume that our basis is [[b*,0],[0,b]]
-    tij_dc=np.array([[uijkl[1,0,1,0],0.0],[0.0,uijkl[1,1,1,1]]])
+    tij_dc=np.array([[uijkl[0][1,0,1,0],0.0],[0.0,uijkl[0][1,1,1,1]]])
 
     # If in orbital basis, transform back
     if not int_in['diag_basis']:
@@ -748,6 +831,32 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
         print(H_dft_dc)
 
     return H
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Average U values, allowing for potentially spin-polarized U
+def make_two_ind_U_sp(n_orb,uijkls,verbose=False,U_elem=[True,True],spin_pol_avg=False):
+
+    '''
+
+    '''
+    
+    uijs=[]    
+    jijs=[]
+    uijkls_avg=[]
+    for uijkl in uijkls:
+        uij, jij, uijkl_avg=make_two_ind_U(n_orb,uijkl,verbose=verbose,U_elem=U_elem)
+        uijs.append(Uavg)
+        jijs.append(Uprimes)
+        uijkls_avg.append(uijkl_avg)
+
+    if spin_pol_avg:
+        uijs=np.average(np.array(uijs))
+        jijs=np.average(np.array(jijs))
+        uijkls_avg=np.average(np.array(uijkls_avg))
+
+    return uijs, jijs, uijkls_avg
 
 #*************************************************************************************
 
@@ -873,6 +982,34 @@ def effective_screening(n_orb,uijkl,vijkl,eps_eff,verbose=False,U_elem=[True,Tru
 #*************************************************************************************
 
 #*************************************************************************************
+# Average U values, accounting for possible spin polarized Wannier functions
+def avg_U_sp(n_orb,uijkls,verbose=False,U_elem=[True,True,True],triqs_U=False,spin_pol_avg=False):
+    '''
+
+    '''
+
+    Uavgs=[]
+    Uprimes=[]
+    Javgs=[]
+    uijkls_avg=[]
+    for uijkl in uijkls:
+        Uavg,Uprime,Javg,uijkl_avg=avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False)
+        Uavgs.append(Uavg)
+        Uprimes.append(Uprimes)
+        Javgs.append(Javgs)
+        uijkls_avg.append(uijkl_avg)
+
+    if spin_pol_avg:
+        Uavgs=np.average(np.array(Uavgs))
+        Uprimes=np.average(np.array(Uprimes))
+        Javgs=np.average(np.array(Javgs))
+        uijkls_avg=np.average(np.array(uijkls_avg))
+
+    return Uavgs,Uprimes,Javgs,uijkls_avg
+        
+#*************************************************************************************
+
+#*************************************************************************************
 # Average U values
 def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
     '''
@@ -982,9 +1119,7 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     if comp_H['Hdc']:
 
         if len(int_in['uijkl']) > 1 or len(int_in['tij']) > 1:
-            print('ERROR: No DC yet for spin polarized calculations')
-            raise
-        
+            print('WARNING: DC not tested for spin polarized calculations. Good luck!')        
         
         if int_in['dc_typ']==0:
             H = add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=verbose)
@@ -1045,16 +1180,16 @@ def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,fops):
     n_orb=len(orb_names)
 
     # Test if we have different U for up and down
-    if os.path.isfile(uijkl_file+'.up.up.1'):
-        spin_pol=True
-        uijkl_files=[uijkl_file+'.up.up.1',uijkl_file+'.dn.dn.1',uijkl_file+'.up.dn.1']
-    else:
-        spin_pol=False
-        uijkl_files=[uijkl_file]
+#    if os.path.isfile(uijkl_file+'.up.up.1'):
+#        spin_pol=True
+#        uijkl_files=[uijkl_file+'.up.up.1',uijkl_file+'.dn.dn.1',uijkl_file+'.up.dn.1']
+#    else:
+#        spin_pol=False
+#        uijkl_files=[uijkl_file]
         
     uijkls=[]
-    # Read in the uijkl files. Skip lines of vijkl
-    for uijkl_comp in uijkl_files:
+    # Read in the uijkl files. Skip lines of vijkl. Ordering: upup, dndn, updn
+    for uijkl_comp in uijkl_file:
         u_file = open(uijkl_comp,"r")
 
         if cmplx:
@@ -1086,8 +1221,11 @@ def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,fops):
 #*************************************************************************************
 # Construct the interaction in the spin polarized case
 def make_spin_pol_H_int(uijkls,spin_names,orb_names,fops):
-
-
+    '''
+    '''
+    
+    n_orbs=len(orb_names)
+    
     # Construct the interaction part of the Hamiltonian
     H_int=Operator()
     for s1 in spin_names:
@@ -1104,7 +1242,16 @@ def make_spin_pol_H_int(uijkls,spin_names,orb_names,fops):
                 for j in range(n_orbs):
                     for k in range(n_orbs):
                         for l in range(n_orbs):
-                            H_int+=uijkls[ispin][i,j,k,l]*c_dag[s1,i]*c_dag[s2,j]*c[s2,l]*c[s1,k]
+                            H_int+=0.5*uijkls[ispin][i,j,k,l]*c_dag(s1,i)*c_dag(s2,j)*c(s2,l)*c(s1,k)
+
+
+    # TEST
+    #H_int_2 = h_int_slater(spin_names, orb_names, uijkls[0], off_diag=True,complex=True)
+
+    #print(H_int-H_int_2)
+
+    #raise
+                            
 
     return H_int
 
@@ -1123,25 +1270,25 @@ def read_tij(wan_file,cmplx,spin_names,orb_names,fops):
 
     n_orb=len(orb_names)
 
-    wan_file_seed=wan_file.replace('_hr.dat','')
+#    wan_file_seed=wan_file.replace('_hr.dat','')
     
     # Test if we have different tij for up and down
-    if os.path.isfile(wan_file_seed+'.1_hr.dat'):
-        spin_pol=True
-        wan_files=[wan_file_seed+'.1_hr.dat',wan_file_seed+'.2_hr.dat']
-    else:
-        spin_pol=False
-        wan_files=[wan_file]
+#    if os.path.isfile(wan_file_seed+'.1_hr.dat'):
+#        spin_pol=True
+#        wan_files=[wan_file_seed+'.1_hr.dat',wan_file_seed+'.2_hr.dat']
+#    else:
+#        spin_pol=False
+#        wan_files=[wan_file]
 
     tijs=[]
     # Read in tij from wannier_hr file
-    for wfile in wan_files:
+    for wfile in wan_file:
         t_file = open(wfile,"r")
         lines=t_file.readlines()
         tij=[]
         count=0
         max_inter=0
-        line_rwts=99999
+        line_rwts=99999 # Magic number :(
         for line in lines:
             if count==2:
                 nrpts=float(line)
@@ -1249,15 +1396,25 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
 
             # Input files
             if var=='uijkl_file':
-                uijkl_file=val
+                uijkl_file=[]
+                for names in str(val).split():
+                    uijkl_file.append(names)
             elif var=='vijkl_file':
-                vijkl_file=val
+                vijkl_file=[]
+                for names in str(val).split():
+                    vijkl_file.append(names)
             elif var=='wan_file':
-                wan_file=val
+                wan_file=[]
+                for names in str(val).split():
+                    wan_file.append(names)
             elif var=='dipol_file':
-                dipol_file=val
+                dipol_file=[]
+                for names in str(val).split():
+                    dipol_file.append(names)
             elif var=='dft_den_file':
-                dft_den_file=val
+                dft_den_file=[]
+                for names in str(val).split():
+                    dft_den_file.append(names)
             elif var=='ad_file':
                 ad_file=val
             elif var=='wf_files':
@@ -1415,106 +1572,31 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     n_orb=len(orb_names)
     fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
     
-    # Read in the uijkl files. Skip lines of vijkl
+    # Read in the uijkl files. Skip lines of uijkl
     if uijkl_file:
         int_in['uijkl']=read_Uijkl(uijkl_file,int_in['cmplx'],spin_names,orb_names,fops)
-
-#        u_file = open(uijkl_file,"r")
-
-#        if int_in['cmplx']:
-#            uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.complex128)
-#        else:
-#            uijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float64)
-            
-#        for line in u_file:
-
-            # skip lines for vijkl
-#            if line.split()[0] == "#":
-#                continue
-
-#            i=int(line.split()[0])
-#            j=int(line.split()[1])
-#            k=int(line.split()[2])
-#            l=int(line.split()[3])
-#            if int_in['cmplx']:
-#                uijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])+1j*float(line.split()[5])
-#            else:
-#                uijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])
-                
-#        u_file.close()
-
-#        int_in['uijkl']=uijkl
 
     # Read in the vijkl files. Skip lines of vijkl
     if vijkl_file:
         int_in['vijkl']=read_Uijkl(vijkl_file,int_in['cmplx'],spin_names,orb_names,fops)
 
-#        v_file = open(vijkl_file,"r")
-
-#        vijkl=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype=np.float)
-#        for line in v_file:
-
-            # skip lines for vijkl
-#            if line.split()[0] == "#":
-#                continue
-
-#            i=int(line.split()[0])
-#            j=int(line.split()[1])
-#            k=int(line.split()[2])
-#            l=int(line.split()[3])
-#            vijkl[i-1,j-1,k-1,l-1]=float(line.split()[4])
-
-#        v_file.close()
-
-#        int_in['vijkl']=vijkl
-
-
     if wan_file:
         int_in['tij']=read_tij(wan_file,int_in['cmplx'],spin_names,orb_names,fops)
-#        # Read in tij from wannier_hr file
-#        t_file = open(wan_file,"r")
-#        lines=t_file.readlines()
-#        tij=[]
-#        count=0
-#        max_inter=0
-#        line_rwts=99999
-#        for line in lines:
-#            if count==2:
-#                nrpts=float(line)
-#                line_rwts = 2+int(np.ceil(nrpts/15.0))
-
-#            elif count > line_rwts:
-#                # Only extract the intrasite elements
-#                if int(line.split()[0])==0 and	int(line.split()[1])==0 and int(line.split()[2])==0:
-
-#                    if int_in['cmplx']:
-#                        tij.append(float(line.split()[5])+1j*float(line.split()[6]))
-#                    else:
-#                        tij.append(float(line.split()[5]))
-#                # Find largest intersite hopping
-#                elif abs(float(line.split()[5])) > max_inter:
-#                    max_inter=float(line.split()[5])
-
-
-#            count+=1
-
-
-#        print('Largest intersite hop:', max_inter)
-#        tij=np.reshape(np.array(tij),(n_orb,n_orb))
-#        int_in['tij']=tij
-#        t_file.close()
 
     if dft_den_file:
         # Read in DFT densities
         mo_den=[]
-        den_file = open(dft_den_file,"r")
-        for lines in den_file:
-            for num in lines.split():
-                mo_den.append(float(num))
-        mo_den=np.reshape(np.array(mo_den),(n_orb,n_orb))
-        den_file.close()
+        for dfile in dft_den_file:
+            mo=[]
+            den_file = open(dfile,"r")
+            for lines in den_file:
+                for num in lines.split():
+                    mo.append(float(num))
+            mo_den.append(np.reshape(np.array(mo),(n_orb,n_orb)))
+            den_file.close()
+            
     elif comp_H['Hdc']==True:
-        print('Must specify DFT den to use DC!')
+        print('ERROR: Must specify DFT den to use DC!')
         quit()
 
     # Read in ad and eigensys?

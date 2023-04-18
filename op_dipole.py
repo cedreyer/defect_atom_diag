@@ -210,7 +210,7 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False,den_m
 
 #*************************************************************************************
 # Read in wannier90_r file
-def read_rij(r_wan_file,n_orb,lat_param):
+def read_rij(r_wan_files,n_orb,lat_param):
     '''
     Read in the dipole matrix elements for single particle basis
     
@@ -220,29 +220,35 @@ def read_rij(r_wan_file,n_orb,lat_param):
     lat_param: Lattice parameters of the cell
 
     Outputs:
-    rij: Array with dipole matrix elements
+    rijs: List with dipole matrix elements. Should work for spin-pol
     '''
-    
-    r_file = open(r_wan_file,"r")
-    lines=r_file.readlines()[3:]
-    rij=np.zeros((3,n_orb,n_orb))
 
-    for line in lines:
-        rij[0][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[5])
-        rij[1][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[7])
-        rij[2][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[9])
-        
-    r_file.close()
+    rijs=[]
+    for r_wan_file in r_wan_files:
+        r_file = open(r_wan_file,"r")
+        lines=r_file.readlines()[3:]
+        rij=np.zeros((3,n_orb,n_orb))
 
-    # I think we should make sure that diagonal elements are zero. Thus, we are shifting
-    if np.linalg.norm(lat_param) > 1.0e-10:
-        for orb in range(n_orb):
-            for idir in range(3):
-                rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])                                                                                               
-    else:                                                                                                                                                                 
-        print('WARNING: No lattice parameters specified or invalid. Wannier functions not shifted to home cell.')
+        for line in lines:
+            rij[0][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[5])
+            rij[1][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[7])
+            rij[2][int(line.split()[3])-1][int(line.split()[4])-1]=float(line.split()[9])
         
-    return rij
+        r_file.close()
+
+        # I think we should make sure that diagonal elements are zero. Thus, we are shifting. SOMETHING WRONG WITH THIS...
+        if np.linalg.norm(lat_param) > 1.0e-10:
+            for orb in range(n_orb):
+                for idir in range(3):
+                    rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])                                                                                               
+        else:
+            print('WARNING: No lattice parameters specified or invalid. Wannier functions not shifted to home cell.')
+
+
+        rijs.append(rij) 
+        
+        
+    return rijs
 
 
 #*************************************************************************************
@@ -267,30 +273,34 @@ def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,velocit
     '''
 
     n_orb=len(orb_names) 
-    rij=read_rij(dipol_file,n_orb,lat_param) # read in wannier90_r
-
+    rijs=read_rij(dipol_file,n_orb,lat_param) # read in wannier90_r
+    
+    if len(rijs) == 1:
+        rijs.append(rijs[0])
+        
     # Contsruct MB dipole operator
     r_op=[Operator(),Operator(),Operator()]
 
-    if velocity:
-        for s in spin_names:
-            for i,o1 in enumerate(orb_names):
-                for j,o2 in enumerate(orb_names):
-                    for x in range(0,3):
-                        p_ij=0.0
-                        for k,o3 in enumerate(orb_names):
-                            p_ij+=tij[i,k]*rij[x][k][j]-tij[j,k]*rij[x][k][i]
-                        
-                        r_op[x] += p_ij * c_dag(s,o1) * c(s,o2)
-                        print('velocity',i,j,p_ij)
-                        
-    else:
-        for s in spin_names:
-            for o1 in orb_names:
-                for o2 in orb_names:
-                    for x in range(0,3):
-                        r_op[x] += rij[x][int(o1)][int(o2)] * c_dag(s,o1) * c(s,o2)
+    for ispin,s in enumerate(spin_names):
+        for o1 in orb_names:
+            for o2 in orb_names:
+                for x in range(0,3):
+                    r_op[x] += rijs[ispin][x][int(o1)][int(o2)] * c_dag(s,o1) * c(s,o2)
 
+#    if velocity:
+#        for s in spin_names:
+#            for i,o1 in enumerate(orb_names):
+#                for j,o2 in enumerate(orb_names):
+#                    for x in range(0,3):
+#                        p_ij=0.0
+#                        for k,o3 in enumerate(orb_names):
+#                            p_ij+=tij[i,k]*rij[x][k][j]-tij[j,k]*rij[x][k][i]                       
+#                        r_op[x] += p_ij * c_dag(s,o1) * c(s,o2)
+#                        print('velocity',i,j,p_ij)
+                        
+#    else:
+
+                        
     return r_op
                         
 #*************************************************************************************
