@@ -299,7 +299,7 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
 #*************************************************************************************
 # Convert basis of uijkl to wan. diagonal
-def wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=[]):
+def wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=[],verbose=False):
     '''
     Convert Hamiltonian to basis where tij is diagonal
 
@@ -317,7 +317,8 @@ def wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=[]):
     tij_conv=[]
     for tij in tijs:
         evals,evecs=np.linalg.eig(tij)
-        print('wannier eval order:',evals)
+        if verbose:
+            print('wannier eval order:',evals)
         tij_conv.append(np.multiply(np.identity(n_orb),evals))
         
     #print(tij_conv)
@@ -334,8 +335,9 @@ def wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=[]):
             uijkl_conv.append(transform_U_matrix(uijkl,basis_trans))
             #print('WARNING: Band basis with spin polarization not tested!') 
 
-
-    return tij_conv, uijkl_conv
+        uijkls=uijkl_conv
+            
+    return tij_conv, uijkls
 
 #*************************************************************************************
 
@@ -508,12 +510,12 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
     '''
 
     # Get variables from int_in. NOTE: NO SPIN POLARIZATION YET!
-    tij=int_in['tij'][0]
+    tij=int_in['tij']
     dc_x_wt=int_in['dc_x_wt']
     dc_opt=int_in['dc_opt']
     eps_eff=int_in['eps_eff']
     uijkl=int_in['uijkl']
-    vijkl = int_in['vijkl']
+    vijkl= int_in['vijkl']
 
     if len(int_in['uijkl']) == 1:        
         spin_pol=False
@@ -524,38 +526,35 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
         if dc_opt != 0:
             print('ERROR: No use of int_opt other than 0 for spin polarization!')
             quit()
-
-    
-
     
     n_orb=len(orb_names)
 
     if int_in['flip']:
         uijkl=flip_u_index(n_orb,uijkl)
-        if int_in['vijkl']: vijkl = flip_u_index(n_orb, vijkl)
+        if int_in['vijkl']: vijkl = flip_u_index(n_orb,vijkl)
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
 
-    if dc_opt < 0: # Use averaged density
-        avg_den=np.trace(mo_den)/n_orb
-        wan_den=np.identity(n_orb)*avg_den
-        dc_opt=abs(dc_opt)
+    # if dc_opt < 0: # Use averaged density
+    #    for mo in mo_den:
+    #    avg_den=np.trace(mo_den)/n_orb
+    #    wan_den=np.identity(n_orb)*avg_den
+    #    dc_opt=abs(dc_opt)
 
-    else: # Convert DFT density to wannier basis
-        # Find matrix that converts between wannier and MO reps
-        evals,evecs=np.linalg.eig(tij)
+    # Convert DFT density to wannier basis
+    # Find matrix that converts between wannier and MO reps
+
+    wan_den=[]
+    for it,t in enumerate(tij):
+        evals,evecs=np.linalg.eig(t)
 
         print("Ordering of states",evals)
-        #quit()
         
         # Convert to wannier basis
-        #wan_den=np.dot(np.dot(np.linalg.inv(evecs.T),mo_den),np.linalg.inv(evecs))
         evecs=np.matrix(evecs)
-        wan_den=[]
-        for mo in mo_den:
-            wan_den.append(np.dot(np.dot(np.linalg.inv(evecs.H),mo),np.linalg.inv(evecs)))
+        wan_den.append(np.dot(np.dot(np.linalg.inv(evecs.H),mo_den[it]),np.linalg.inv(evecs)))
         
     # Mixing of exchange part
     print("DC mix:",dc_x_wt)
