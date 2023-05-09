@@ -245,11 +245,14 @@ def read_rij(r_wan_files,n_orb,lat_param,diag_vecs=[]):
         else:
             print('WARNING: No lattice parameters specified or invalid. Wannier functions not shifted to home cell.')
 
+
+        #print('DIGAVECS',diag_vecs)
+            
         # Convert to band basis
         if diag_vecs:
             for idir in range(3):
-                rij[idir,:,:]=np.dot(np.dot(np.matrix(diag_vecs).H,rij[idir,:,:]),diag_vecs)
-
+                rij[idir,:,:]=np.dot(np.dot(np.matrix(diag_vecs[irwf]).H,rij[idir,:,:]),diag_vecs[irwf])
+    
                 
         rijs.append(rij) 
         
@@ -279,11 +282,11 @@ def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,diag_ba
     '''
 
     n_orb=len(orb_names) 
-
+    
     if diag_basis:
         diag_vecs=[]
-        for tij in tijs:
-            diag_val,diag_vec=np.linalg.eig(tij)
+        for t in tij:
+            diag_val,diag_vec=np.linalg.eig(t)
             diag_vecs.append(diag_vec)
         # read in wannier90_r, convert to band basis
         rijs=read_rij(dipol_file,n_orb,lat_param,diag_vecs=diag_vecs)

@@ -1,4 +1,4 @@
-#!/usr/OAbin/pythonA
+ #!/usr/OAbin/pythonA
 
 from triqs.operators.util.hamiltonians import *
 from triqs.operators.util import *
@@ -538,7 +538,7 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
-        tijs,uijkls=wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=uijkls)
+        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
 
     # if dc_opt < 0: # Use averaged density
     #    for mo in mo_den:
@@ -1330,7 +1330,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,prt_L=False,\
-                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,n_dipol=[0,12],prt_mbwfs=False):
+                mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,prt_mbwfs=False):
 
     '''
     "Main" program, reads input, constructs Hamiltonian, runs
@@ -1547,9 +1547,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
                 if val=='True' or val=='T' or val=='true':
                     prt_dipol=True
                     
-            elif var=='n_dipol':
-                n_dipol[0]=int(val.split()[0].strip())
-                n_dipol[1]=int(val.split()[1].strip())
+            #elif var=='n_dipol':
+            #    n_dipol[0]=int(val.split()[0].strip())
+            #    n_dipol[1]=int(val.split()[1].strip())
 
             elif var=='lat_param':
                 lat_param[0]=float(val.split()[0].strip())
@@ -1651,12 +1651,15 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         # Check for spin pol
         if len(int_in['tij']) > 1:
             print('WARNING: Dipoles not tested for spin polarization!!!')
-        
-        start = time.time()
-        print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,int_in['tij'][0],diag_basis=int_in['diag_basis'])
-        end = time.time()
-        print("Time to print dipole matrix elements:",end-start)
 
+        if dipol_file:
+            start = time.time()
+            print_dipole_mat(n_print,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,int_in['tij'],diag_basis=int_in['diag_basis'])
+            end = time.time()
+            print("Time to print dipole matrix elements:",end-start)
+        else:
+            print("ERROR: No dipole file, cannot calculate rij")
+            
 
     # Print out real-space MB wavefunctions
     if prt_mbwfs:
