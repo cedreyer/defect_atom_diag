@@ -210,7 +210,7 @@ def check_multi_ref_state(ad,spin_names,orb_names,fops,n_eig,verbose=False,den_m
 
 #*************************************************************************************
 # Read in wannier90_r file
-def read_rij(r_wan_files,n_orb,lat_param):
+def read_rij(r_wan_files,n_orb,lat_param,diag_vecs=[]):
     '''
     Read in the dipole matrix elements for single particle basis
     
@@ -224,7 +224,7 @@ def read_rij(r_wan_files,n_orb,lat_param):
     '''
 
     rijs=[]
-    for r_wan_file in r_wan_files:
+    for irwf,r_wan_file in enumerate(r_wan_files):
         r_file = open(r_wan_file,"r")
         lines=r_file.readlines()[3:]
         rij=np.zeros((3,n_orb,n_orb))
@@ -241,11 +241,16 @@ def read_rij(r_wan_files,n_orb,lat_param):
         if np.linalg.norm(lat_param) > 1.0e-10:
             for orb in range(n_orb):
                 for idir in range(3):
-                    rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])                                                                                               
+                    rij[idir,orb,orb]=np.mod(rij[idir,orb,orb],lat_param[idir])
         else:
             print('WARNING: No lattice parameters specified or invalid. Wannier functions not shifted to home cell.')
 
+        # Convert to band basis
+        if diag_vecs:
+            for idir in range(3):
+                rij[idir,:,:]=np.dot(np.dot(np.matrix(diag_vecs).H,rij[idir,:,:]),diag_vecs)
 
+                
         rijs.append(rij) 
         
         
@@ -254,7 +259,7 @@ def read_rij(r_wan_files,n_orb,lat_param):
 
 #*************************************************************************************
 # Hake the dipole operator
-def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,velocity=False):
+def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,diag_basis=False,velocity=False):
     '''
     Make the many-body dipole operator
 
@@ -274,8 +279,18 @@ def make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,velocit
     '''
 
     n_orb=len(orb_names) 
-    rijs=read_rij(dipol_file,n_orb,lat_param) # read in wannier90_r
-    
+
+    if diag_basis:
+        diag_vecs=[]
+        for tij in tijs:
+            diag_val,diag_vec=np.linalg.eig(tij)
+            diag_vecs.append(diag_vec)
+        # read in wannier90_r, convert to band basis
+        rijs=read_rij(dipol_file,n_orb,lat_param,diag_vecs=diag_vecs)
+    else:
+        rijs=read_rij(dipol_file,n_orb,lat_param)
+
+                
     if len(rijs) == 1:
         rijs.append(rijs[0])
         
@@ -359,7 +374,7 @@ def apply_dipole_op(r_op,ad,n_state_l,n_state_r,eigensys,verbose=False):
 
 #*************************************************************************************
 # Print the dipole matricies
-def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij):
+def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,out_label,lat_param,tij,diag_basis=False):
 
     '''
     Print dipole/velocity matrix elements
@@ -381,7 +396,7 @@ def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,ou
     '''
 
     # Make the dipole operator
-    r_op=make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param)
+    r_op=make_dipole_op(ad,spin_names,orb_names,fops,dipol_file,tij,lat_param,diag_basis=diag_basis)
     
     with open(out_label+"rij.dat","w") as rf:
         rf.write('# state 1  state 2  dir  dipole (real)  dipole (imag) \n')
