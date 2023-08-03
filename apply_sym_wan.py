@@ -202,81 +202,20 @@ def load_xsf_files(wf_file_names,convert_lat=True):
 #*************************************************************************************
 
 #*************************************************************************************
-# Load an xsf file, get mesh points in cartesian coordinates
-def load_xsf_get_mesh(wf_file_name, mesh_shape='3D'):
-    '''
-    Get the mesh on which the xsf file is plotted
-
-    Inputs: 
-    wf_file_name: Name of the wannier function XSF file 
-    mesh_shape: Output shape of mesh, '1D' or '3D'
-    
-    Outputs:
-    mesh_pts: Cartesian coordinates of 
-
-    '''
-
-    # Open file
-    f1=open(wf_file_name)
-    lines1=f1.readlines()
-    f1.close()
-            
-    # Get basic info
-    n_at1=int(lines1[14].split()[0])
-    n_mesh=[int(lines1[n_at1+20].split()[0]),int(lines1[n_at1+20].split()[1]),int(lines1[n_at1+20].split()[2])]
-         
-    # Since its not a cube, need lattice vector info.
-    lat_vec=[]
-    for i in range(0,3):
-        ln=lines1[n_at1+22+i].split()
-        for l in ln:
-            lat_vec.append(float(l))
-
-    lat_vec=np.reshape(lat_vec,(3,3))
-
-    # spacing in units of lattice constants
-    delr=lat_vec.dot(np.reciprocal(np.array([float(n_mesh[0]),float(n_mesh[1]),float(n_mesh[2])])))
-       
-    # Get the header (makes it easier for output).
-    header=lines1[0:n_at1+25]
-
-    # Read in wannier functions on the mesh
-    wann1=[]
-    for grd_lines in lines1[25+int(n_at1):]:
-        if 'END_DATAGRID_3D' in grd_lines:
-            break
-
-        grd_pts=grd_lines.split()
-        for grds in grd_pts:
-            wann1.append(float(grds))
-                           
-    wann1=np.reshape(wann1,(n_mesh[0],n_mesh[1],n_mesh[2]))        
-        
-    # Get cartesian grid:
-
-    _x1=np.linspace(0,1,n_mesh[0])
-    _y1=np.linspace(0,1,n_mesh[1])
-    _z1=np.linspace(0,1,n_mesh[2])            
-            
-    x1,y1,z1=np.meshgrid(_x1,_y1,_z1)
-    positions1 = np.vstack([x1.ravel(), y1.ravel(),z1.ravel()]).T
-
-    if mesh_shape=='1D':
-        mesh_pts=np.dot(positions1,lat_vec)
-    elif mesh_shape=='3D':
-        mesh_pts=np.reshape(np.dot(positions1,lat_vec),(n_mesh[0],n_mesh[1],n_mesh[2],3))
-    else:
-        print('INCORRECT MESH_SHAPE')
-        raise
-            
-    return wann1, delr, n_mesh, header, mesh_pts
-#*************************************************************************************
-
-
-#*************************************************************************************
-# write xsf file
+# Write xsf file
 def write_wann(file_name,wann,n_mesh,header):
     '''
+    Write real-space function to xsf file
+
+    Input:
+    file_name: File name
+    wann: function on 3D grid
+    n_mesh: Mesh size in x, y, z
+    header: XSF header
+
+    Output:
+    None
+
     '''
 
     with open(file_name, 'w') as out_file:
@@ -435,81 +374,6 @@ def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
         
 
     return point_sym_ops
-#*************************************************************************************
-
-#*************************************************************************************
-# For a given symmetry operation, calculate the representation
-def OLD_representation_fast(sym_op,wanns,delr,n_mesh,file_type,com_tot=(0.0,0.0,0.0),center_in_cell=False,cheat=True,cht_rnd=0.05):
-    '''Calculate the single-particle symmetry representation matrix for
-    symmerty operation given by sym_op.
-
-    Inputs:
-    sym_op: 2D, 3x3 array for the symmetry operation
-    wf_file_names: Names of the wannier function files.
-    file_type: cube or xsf
-    cheat: To help get pretty looking representation matricies, do
-    some strategic rounding :).
-
-    Outputs:
-    rep: 2D n_orb x n_orb representation matrix
-    '''
-
-    # Initialize rep
-    n_wf=len(wanns)
-    rep=np.zeros([n_wf,n_wf],dtype=float)
-
-    # Loop through wannier functions
-    for i in range(0,n_wf):
-
-        wann_i=wanns[i]
-        
-        for j in range(0,n_wf):            
-            
-            wann_j=wanns[j]
-                
-            # Apply affine transformation around center of cell or
-            # total wannier function COM for xsf
-            if file_type=='xsf' and not center_in_cell:
-                # Around COM
-                center=com_tot
-            else:
-                # Around center of cell
-                center=0.5*np.array(wann_j.shape)
-            
-            offset=-(center-center.dot(sym_op)).dot(np.linalg.inv(sym_op))
-
-            # Apply symmetry element
-            wann_j_sym=sni.affine_transform(wann_j,sym_op,offset=offset)
-
-            #TEST: Recenter yet again
-            if file_type=='xsf':
-                if center_in_cell:
-                    wann_j_sym,com_sym=center_wan_func(wann_j_sym,n_mesh,wrt_tot_com=False,com_tot=com_tot,mod_wan=True)
-                else:
-                    wann_j_sym,com_sym=center_wan_func(wann_j_sym,n_mesh,wrt_tot_com=True,com_tot=com_tot,mod_wan=True)
-
-            sym_rep=int_3d(np.multiply(wann_i,wann_j_sym),delr)
- 
-            #TEST: Do some cheating to get higher accuracy
-            if cheat:
-                if abs(sym_rep-1.0) < cht_rnd:
-                    sym_rep=1.0
-                elif abs(sym_rep+1.0) < cht_rnd:
-                    sym_rep=-1.0
-                elif abs(sym_rep-0.5) < cht_rnd/10.0:
-                    sym_rep =0.5
-                elif abs(sym_rep+0.5) < cht_rnd/10.0:
-                    sym_rep =-0.5
-                elif abs(sym_rep-math.sqrt(3)/2) < cht_rnd/10.0:
-                    sym_rep=math.sqrt(3)/2
-                elif abs(sym_rep+math.sqrt(3)/2) < cht_rnd/10.0:
-                    sym_rep=-math.sqrt(3)/2
-                elif abs(sym_rep) < cht_rnd:
-                    sym_rep=0.0
-
-            rep[i,j]=sym_rep
-
-    return rep
 #*************************************************************************************
 
 #*************************************************************************************
@@ -891,36 +755,6 @@ def get_coms(wanns):
     return coms,com_tot
 #*************************************************************************************
 
-#*************************************************************************************    
-# Get offset to shift COM of wannier centers to the middle
-def get_wan_cen_mass_shift(wanns,n_mesh):
-    '''
-    Gets the center of mass of the wannier function (squared), for
-    centering purposes.
-    
-    Inputs:
-    wanns: List of wannier functions on 3D real-space mesh 
-
-    Outputs: 
-    shift: 1D 3 element array indicating the shift required to
-    put the COM of the sum of wannier functions in the middle of the
-    cell.
-    com: Center of mass of sum of wannier functions
-    '''
-    
-    # Load/sum all of the wannier functions
-    wann_sum=0.0
-    for wann1 in wanns:
-        wann1=np.multiply(wann1,wann1)
-        wann_sum=np.add(wann1,wann_sum)
-        
-    # Find center of mass for sum of wannier function
-    com=np.array(sni.center_of_mass(wann_sum))
-    shift=com-np.array([float(n_mesh[0])/2.0,float(n_mesh[1])/2.0,float(n_mesh[2])/2.0])
-     
-
-    return shift,com
-#*************************************************************************************
 
 #*************************************************************************************
 # Center the wannier function in the cell
@@ -995,53 +829,30 @@ def shift_wann_func(wann,new_com):
 #*************************************************************************************            
 
 #*************************************************************************************
-# Shift Wannier center (REPEAT OF ABOVE!!!)
-def remove_outside_radius(wann,n_mesh,radius=20.0):
+# Remove parts of Wannier functions outside of some radius
+def remove_outside_radius(wann,n_mesh,com,radius=20.0):
+    '''
+    Remove parts of Wannier functions outside of some radius
+
+    Input:
+    wann: Wannier function on 3D grid
+    n_mesh: Mesh size in x,y,z
+    com: Center of mass of the wannier function
+    radius: Rqdius to remove contribtuins outside of
+
+    Output:
+    wann: Modified Wannier function on 3D grid
+    '''
 
     for i in range(n_mesh[0]):
         for j in range(n_mesh[1]):
             for k in range(n_mesh[2]):
-                norm= np.linalg.norm(np.array([i-n_mesh[0]/2,j-n_mesh[1]/2,k-n_mesh[2]/2]))
+                norm= np.linalg.norm(np.array([i-com[0],j-com[1],k-com[2]]))
                 if norm > radius:
                     wann[i,j,k] = 0.0
     return wann
 #*************************************************************************************
-#************************************************************************************* 
-# Interpolate wannier functions onto consistent grid
-def interpolate_one_wann(wann,delr,n_mesh_fine):
-    '''
-    Interpolate the wannier functions onto the same grid
-    
-    Input: 
-    wanns: List of wannier function on 3D grid in real space
-    delr: 1D 3 element array containing mesh spacing
-    n_mesh_fine: 1D 3 element array containing number of mesh points to interpolate onto
-    
-    Output:
-    wanns_fine: list of wannier functions on fine grid
 
-    '''
-
-
-    n_mesh=np.array(wann.shape)
-
-    x=np.linspace(0,1,n_mesh[0])
-    y=np.linspace(0,1,n_mesh[1])
-    z=np.linspace(0,1,n_mesh[2])
-    X,Y,Z= np.meshgrid(x,y,z)
-    points=np.stack((np.ndarray.flatten(X),np.ndarray.flatten(Y),np.ndarray.flatten(Z))).T
-
-    xf=np.linspace(0,1,n_mesh_fine[0])
-    yf=np.linspace(0,1,n_mesh_fine[1])
-    zf=np.linspace(0,1,n_mesh_fine[2])
-    Xf,Yf,Zf= np.meshgrid(xf,yf,zf)
-
-    points_fine=np.stack((np.ndarray.flatten(Xf),np.ndarray.flatten(Yf),np.ndarray.flatten(Zf))).T
-
-    wann_fine=normalize(np.reshape(scp.interpolate.interpn((x,y,z), wann, points_fine),np.array(n_mesh_fine)),delr)
-    
-    return wann_fine
-#*************************************************************************************
                     
 # END OF FUNCTIONS
 # ---------
