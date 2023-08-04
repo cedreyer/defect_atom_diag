@@ -9,8 +9,10 @@ import time
 
 
 # pymatgen symmetry stuff
-import pymatgen as pmg
-from  pymatgen.symmetry.groups import *
+#import pymatgen as pmg
+from  pymatgen.symmetry.groups import PointGroup
+#from pymatgen.symmetry.settings import JonesFaithfulTransformation
+from settings_CED import JonesFaithfulTransformation_CED
 
 #*************************************************************************************
 # Load the cube files
@@ -103,7 +105,7 @@ def load_cube_files(wf_file_names,convert_lat=False):
 
 #*************************************************************************************
 # Load an xsf files
-def load_xsf_files(wf_file_names,convert_lat=True):
+def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
     '''
     Load a wannier function in xsf file format. wannier_plot_mode =
     molecule is not available in this case
@@ -177,12 +179,18 @@ def load_xsf_files(wf_file_names,convert_lat=True):
                 wann1.append(float(grds))
                     
                 
-        wann1=np.reshape(wann1,(n_meshes[0][0],n_meshes[0][1],n_meshes[0][2]))
+        #wann1=np.reshape(wann1,(n_meshes[0][0],n_meshes[0][1],n_meshes[0][2]))
+        wann1=np.reshape(wann1,(n_meshes[0][2],n_meshes[0][1],n_meshes[0][0]))
 
         # Seems like for xsf, the x and z axes are switched
         # compared to cube and to latt vectors:
-        wann1=wann1.transpose(2,1,0)
+        if flip_xz:
+            wann1=wann1.transpose(2,1,0)
+            #n_meshes[-1][0], n_meshes[-1][2] = n_meshes[-1][2], n_meshes[-1][0]
+            #delrs[-1][0], delrs[-1][2] = delrs[-1][2], delrs[-1][0]
 
+        #write_wann('TEST_1.xsf',wann1,n_meshes[-1],headers[-1])
+        
         # Convert to cartesian coordinates.
         if convert_lat:
 
@@ -195,6 +203,9 @@ def load_xsf_files(wf_file_names,convert_lat=True):
             # Recenter wannier function
             wann1,_com=center_wan_func(wann1,n_meshes[0])
 
+
+        #write_wann('TEST.xsf',wann1,n_meshes[-1],headers[-1],lat_vec)
+            
         # Add wannier function
         wanns.append(wann1)
 
@@ -203,9 +214,9 @@ def load_xsf_files(wf_file_names,convert_lat=True):
 
 #*************************************************************************************
 # Write xsf file
-def write_wann(file_name,wann,n_mesh,header):
+def write_wann(file_name,wann,n_mesh,header,lat_vec,transpose_wann=True):
     '''
-    Write real-space function to xsf file
+    Write real-space function to xsf file. WILL NOT WORK IF LATTICE IS CONVERTED :(.
 
     Input:
     file_name: File name
@@ -218,14 +229,20 @@ def write_wann(file_name,wann,n_mesh,header):
 
     '''
 
+    # Flip wannierfunctions back
+    _wann=np.copy(wann)
+    _n_mesh=np.copy(n_mesh)
+    _wann=_wann.transpose(2,1,0)
+    _n_mesh[0], _n_mesh[2] = _n_mesh[2], _n_mesh[0]
+
     with open(file_name, 'w') as out_file:
 
         for line in header:
             out_file.write(line)
 
-        wann_out=np.reshape(wann,(n_mesh[0]*n_mesh[1]*n_mesh[2])) 
+        wann_out=np.reshape(_wann,(_n_mesh[0]*_n_mesh[1]*_n_mesh[2])) 
 
-        limit=int(np.ceil(float(n_mesh[0]*n_mesh[1]*n_mesh[2])/6.0))
+        limit=int(np.ceil(float(_n_mesh[0]*_n_mesh[1]*_n_mesh[2])/6.0))
 
         wann_out=np.pad(wann_out,(0,limit*6-len(wann_out)),mode='empty')
         wann_out=np.reshape(wann_out,(limit,6))
@@ -339,15 +356,15 @@ def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
     point_sym_ops: List of 2D 3x3 arrays for symmetry operations
     '''
 
-    #if rhom:
-    #    trans_latt=JonesFaithfulTransformation.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
+    if rhom:
+        trans_latt=JonesFaithfulTransformation_CED.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),4.242640687119286(a+b-2c),0.333333333(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("1.4142135623730951(a-b),2.449489742783178(a+b-2c),1.7320508075688772(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),0.33333333(a+b-1.4142135623730951c),0.33333333(a+b+c);0,0,0")
-    #    if around_z:
-    #        trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-    #                                            -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-    #                                            0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
+        if around_z:
+            trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+                                                -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+                                                0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
         
     # From pymatgen
     point=PointGroup(pg_symbol)
@@ -511,7 +528,7 @@ def get_spin_rep(sym_op,verbose=False):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps(wan_files,center_in_cell=False):
+def print_reps(wan_files,center_in_cell=False,verbose=True):
     '''
     Create file 'reps.dat' that includes: The symmetry operations, the
     orbital representations and characters, and the spin 1/2
@@ -565,6 +582,8 @@ def print_reps(wan_files,center_in_cell=False):
     else:
         pt_sym_ops=get_sym_ops(point_grp,verbose=False)
 
+    if verbose: print('Obtained sym ops')
+    
     # Number of orbitals
     n_orb=len(wf_file_names)
 
@@ -577,7 +596,9 @@ def print_reps(wan_files,center_in_cell=False):
     # Normalize wannier functions
     for iwann,wann in enumerate(wanns):
         wanns[iwann]=normalize(wann,delr)
-    
+
+    if verbose: print('Wannier functions read in and normalized.')
+        
     # Write out info to file:
     f=open("reps.dat","w+")
     f.write("Representations for the symmetry operations:\n")
@@ -606,7 +627,7 @@ def print_reps(wan_files,center_in_cell=False):
 
         f.write("Character\n")
         f.write('%5.3f\n' % np.trace(rep))
-        print("Orb Character: ",str(np.trace(rep)))
+        if verbose: print("Orb Character: ",str(np.trace(rep)))
 
         # Write out spin matrix
         f.write("Representation (spin)\n")
@@ -617,7 +638,7 @@ def print_reps(wan_files,center_in_cell=False):
         f.write('\n')
         f.write('\n')
         f.write('\n')
-        print("Spin Character: ",str(np.trace(spin_mat)))
+        if verbose: print("Spin Character: ",str(np.trace(spin_mat)))
 
     f.close()
 
