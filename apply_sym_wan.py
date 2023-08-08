@@ -153,8 +153,11 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
         lat_vec=np.reshape(lat_vec,(3,3))
         lat_vecs.append(lat_vec)
             
-        delrs.append(lat_vec.dot(np.reciprocal(np.array([float(n_meshes[-1][0]),float(n_meshes[-1][1]),float(n_meshes[-1][2])]))))
 
+        # TEST
+        #delrs.append(lat_vec.dot(np.reciprocal(np.array([float(n_meshes[-1][0]),float(n_meshes[-1][1]),float(n_meshes[-1][2])]))))
+        delrs.append([np.linalg.norm(lat_vec[0,:])/float(n_meshes[-1][0]),np.linalg.norm(lat_vec[1,:])/float(n_meshes[-1][1]),np.linalg.norm(lat_vec[2,:])/float(n_meshes[-1][2])])
+        
         # Check if same number of mesh points
         if not np.all(np.array(n_meshes[-1]) == n_meshes[0]):
 
@@ -342,43 +345,43 @@ def interpolate_wann(wanns,delr,n_mesh_fine):
 
 #*************************************************************************************
 # Extract the rotation matricies from the pymatgen symmetry object
-def get_sym_ops(pg_symbol,verbose=True,rhom=False,around_z=True):
+def get_sym_ops(pg_symbol,verbose=True,hex_to_cart=False):
     '''
     Get point symmetry operations from pymatgen.
     
     Input: 
     pg_symbol: Hermann-Mauguin notation of point group
     verbose: Write out to the terminal or not
-    rhom: Should we convert from hex to rhom?
+    hex_to_cart: Should we convert from symmetry operations WRT hexagonal lattice vectors to cartesian?
     around_z: Convert 3-fold axis from 111 to 001
 
     Outputs:
     point_sym_ops: List of 2D 3x3 arrays for symmetry operations
     '''
 
-    if rhom:
+    if hex_to_cart:
         trans_latt=JonesFaithfulTransformation_CED.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),4.242640687119286(a+b-2c),0.333333333(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("1.4142135623730951(a-b),2.449489742783178(a+b-2c),1.7320508075688772(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),0.33333333(a+b-1.4142135623730951c),0.33333333(a+b+c);0,0,0")
-        if around_z:
-            trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-                                                -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
-                                                0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
+        #if around_z:
+            
+        trans_axis_mat=np.reshape(np.array([1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+                                            -1.0/math.sqrt(2.0),1.0/math.sqrt(6.0),1.0/math.sqrt(3.0),\
+                                            0.0,-math.sqrt(2.0/3.0),1.0/math.sqrt(3.0)]),(3,3))
         
     # From pymatgen
     point=PointGroup(pg_symbol)
     point_sym_ops=[]
     for sym in point.symmetry_ops:
 
-        # Convert from hex to rhom
-        if rhom:
+        # Convert from hex to cartesian symmetry operations
+        if hex_to_cart:
             # Transform to rhomahedral setting
             rot_mat=trans_latt.transform_symmop(sym).rotation_matrix
 
-            if around_z:
-                # Transform 3-fold axis to around z axis. Can't figure out how to do this with JFT
-                rot_mat=np.matmul(np.matmul(np.linalg.inv(trans_axis_mat),rot_mat),trans_axis_mat)
+            # Transform 3-fold axis to around z axis. Can't figure out how to do this with JFT
+            rot_mat=np.matmul(np.matmul(np.linalg.inv(trans_axis_mat),rot_mat),trans_axis_mat)
                 
         else:
             rot_mat=sym.rotation_matrix
@@ -577,8 +580,8 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
         quit()
             
     # Get symmetry operations from pymatgen
-    if point_grp=='3m' or point_grp=='-3m':
-        pt_sym_ops=get_sym_ops(point_grp,verbose=False,rhom=True)
+    if point_grp=='3m' or point_grp=='-3m' or point_grp=='6/mmm':
+        pt_sym_ops=get_sym_ops(point_grp,verbose=False,hex_to_cart=True)
     else:
         pt_sym_ops=get_sym_ops(point_grp,verbose=False)
 
