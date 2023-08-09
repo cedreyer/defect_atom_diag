@@ -1638,9 +1638,9 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     if prt_mbchar:
         start = time.time()
         if int_in['cmplx']:
-            print('ERROR: Cannot get MB characters for complex inputs at the moment')
-        else:
-            mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=n_print[1],spin=mb_char_spin)
+            print('WARNING: NOT TESTED MB characters for complex inputs at the moment')
+        #else:
+        mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=n_print[1],spin=mb_char_spin)
         end = time.time()
         print("Time to print out characters of degeneracies:",end-start)
 
