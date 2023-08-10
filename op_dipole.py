@@ -508,12 +508,13 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
  
 #*************************************************************************************
 # Get the matricies for symmetry representations
-def construct_dij(n_orb,repsfile,flip=False):
+def construct_dij(n_orb,n_spin,repsfile,flip=False):
     '''
     Read in the representation matricies, generated from the wannier functions
     
     Inputs: 
     n_orb: Number of orbitals r
+    n_spin: Number of explicit spin channels. If 1, assumer SOC and first n_orb/2 are spin up
     epsfile: File containing the representations 
     flip: Reverse the representation matricies, since
     Fock states expressed with orbital 0 on the far right.
@@ -522,6 +523,11 @@ def construct_dij(n_orb,repsfile,flip=False):
     dij: [symmetry operation,orbital character,spin character]
     '''
 
+    # Assume SOC if only one explicit spin channel
+    if n_spin == 1:
+        _n_orb=int(n_orb/2)
+        
+    
     r_file = open(repsfile,"r")
     lines=r_file.readlines()[2:]
     dij=[]
@@ -544,18 +550,19 @@ def construct_dij(n_orb,repsfile,flip=False):
         # Orbital part of the representaion
         elif  "Representation (Orb)" in lines[line]:
             rep_mat = [] 
-            for ii in range(1,n_orb+1):
+            for ii in range(1,_n_orb+1):
                 el=lines[line+ii].split()
                 for jj in el:
                     rep_mat.append(jj)
-            rep_mat = np.reshape(np.array(rep_mat,dtype=float),(n_orb,n_orb))
+
+            rep_mat = np.reshape(np.array(rep_mat,dtype=float),(_n_orb,_n_orb))
             
             # Flip the orbital reps (since MB states fo from right to left)
             if flip:
-                rep_mat_flip=np.zeros((n_orb,n_orb))
-                for ii in range(0,n_orb):
-                    for jj in range(0,n_orb):
-                        rep_mat_flip[ii][jj]=rep_mat[n_orb-1-ii][n_orb-1-jj]
+                rep_mat_flip=np.zeros((_n_orb,_n_orb))
+                for ii in range(0,_n_orb):
+                    for jj in range(0,_n_orb):
+                        rep_mat_flip[ii][jj]=rep_mat[_n_orb-1-ii][_n_orb-1-jj]
                 rep_mat=rep_mat_flip
 
         # Spin part of the representation
@@ -598,7 +605,8 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
     '''
     # Extract the rotation matricies and reps for orbitals
     n_orb=len(orb_names)
-    dij_orb_spin=construct_dij(n_orb,repsfile,flip=True)
+    n_spin=len(spin_names)
+    dij_orb_spin=construct_dij(n_orb,n_spin,repsfile,flip=True)
 
     n_reps=len(dij_orb_spin)
  
