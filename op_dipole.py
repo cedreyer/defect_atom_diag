@@ -43,7 +43,7 @@ def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
     n_eig=0
     # Loop through subspaces
     for sub in range(0,ad.n_subspaces):
-        exp_val=np.zeros(ad.get_subspace_dim(sub),dtype='complex128')
+        exp_val=np.zeros(ad.get_subspace_dim(sub),dtype=complex)
         for ind in range(0,ad.get_subspace_dim(sub)):
         
             # Get desired states in eigenvector basis
@@ -437,15 +437,9 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     char: Symmetry character <\psi_i | \hat{R} \vert \psi_i >
     '''
 
-    # Test to make sure that the vacuum state is in the space
-    if np.dot(ad.vacuum_state,ad.vacuum_state) < 1.e-10:
-        print("ERROR: The vacuum state must be included for symmetry analysis (no constrained occ.)")
-        sys.exit()
-
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     n_fock= n_orb*n_spin
-
     
     i_state=eigensys[i_mb_st][0].split('>')
     
@@ -492,18 +486,67 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
                 jj -= 1
                 
         op_on_vacuum += coeff1*op_vac
-    
 
-    # TEST
-    #print(op_on_vacuum)
-    #quit()
-    # Calculate character <\Psi | sym_op | \Psi>
-    # i_mb_st is in terms of order in eigensys. Get state index in Hilbert space
-    state_l = np.zeros((int(ad.full_hilbert_space_dim)))
-    state_l[int(eigensys[i_mb_st][3])]=1
+
+    # Test to make sure that the vacuum state is in the space
+    if np.dot(ad.vacuum_state,ad.vacuum_state) > 1.e-10:
+        
+        # Calculate character <\Psi | sym_op | \Psi>
+        # i_mb_st is in terms of order in eigensys. Get state index in Hilbert space
+        state_l = np.zeros((int(ad.full_hilbert_space_dim)))
+        state_l[int(eigensys[i_mb_st][3])]=1
+
+        char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
+
+    # For constrained occupancy we need to do this without the vacuum state
+    else:
+
+        # Find the size of the hibert space (WILL NOT BE full_hilbert_space_dim BECAUSE WE ALWAYS LIMIT N)
+        hilbert_space_dim=np.sum([len(sub) for sub in ad.fock_states])    
+        
+        state_l_less=np.zeros((int(hilbert_space_dim)))
+        state_l_less[int(eigensys[i_mb_st][3])]=1
     
-    char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
+        # Setup the state on RHS
+        state_r_subs=[]
+        for sub in range(ad.n_subspaces):
+            state_r_subs.append(np.zeros(len(ad.fock_states[sub]),dtype='complex128'))
+
+        for iop,op in enumerate(op_on_vacuum):
+            fock=0
+            for o in op[0]:
+                c_op=o[1]
+                bin_add=10**(int(c_op[1]))
+                if c_op[0]=='dn': bin_add*=10**(n_orb)
+
+                fock+=bin_add
+                
+            found_fock=False
+            for sub in range(ad.n_subspaces):
+            
+                state_ind=np.where(ad.fock_states[sub]==int(str(fock),2))
+            
+                if state_ind[0].size>0:
+                    found_fock= True                        
+                    state_ind=int(state_ind[0])
+                    state_r_subs[sub][state_ind]=op[1]
+                    break
+
+
+                # Make sure we found the state
+                if sub==ad.n_subspaces-1 and found_fock==False:
+                    print('ERROR: Could not find fock state ',int(str(fock),2))
+                    quit()
+                
+        # Convert into eigenvalue basis
+        for sub in range(ad.n_subspaces):
+            state_r_subs[sub]=np.dot(ad.unitary_matrices[sub].conj().T,state_r_subs[sub])
+        
+        # Convert to full Hilbert space
+        state_r = np.concatenate(state_r_subs[:])#np.ndarray.flatten(np.array(state_r_subs))
     
+        char=np.dot(state_l_less,state_r)
+
     return char
  
 #*************************************************************************************
@@ -526,7 +569,8 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
     # Assume SOC if only one explicit spin channel
     if n_spin == 1:
         _n_orb=int(n_orb/2)
-        
+    else:
+        _n_orb=n_orb
     
     r_file = open(repsfile,"r")
     lines=r_file.readlines()[2:]

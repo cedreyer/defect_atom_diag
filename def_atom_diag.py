@@ -274,7 +274,8 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     
     # Check the symmetry of the U matrix
     if int_in['sym']:
-        check_sym_u_mat(uijkl,n_orb)
+        n_spin=len(spin_names)
+        check_sym_u_mat(uijkl,n_orb,n_spin)
 
     # Add the interactions
     if spin_pol:
@@ -346,7 +347,7 @@ def wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=[],verbose=False):
 
 #*************************************************************************************
 # Check if the  U matrix obeys symmetry of single particle reps
-def check_sym_u_mat(uijkls,n_orb):
+def check_sym_u_mat(uijkls,n_orb,n_spin):
     '''
     Checks to see if U matrix is consistent with symmetry of single
     particle reps
@@ -360,7 +361,7 @@ def check_sym_u_mat(uijkls,n_orb):
     '''
 
     # Get reps from reps.dat
-    dij=construct_dij(n_orb,"reps.dat")
+    dij=construct_dij(n_orb,n_spin,"reps.dat")
 
     for uijkl in uijkls:
         i_rep=0
@@ -379,7 +380,7 @@ def check_sym_u_mat(uijkls,n_orb):
 
 #*************************************************************************************
 # Check if the hopping obeys symmetry
-def check_sym_t_mat(tij,n_orb):
+def check_sym_t_mat(tij,n_orb,n_spin):
     '''
     Checks to see if tij matrix is consistent with symmetry of single
     particle reps
@@ -387,13 +388,14 @@ def check_sym_t_mat(tij,n_orb):
     Inputs:
     tij: n_orb x n_orb matrix of tij values
     n_orb: Number of orbitals
+    n_orb: Number of explicit spin states
 
     Outputs:
     None
     '''
 
     # Get reps from reps.dat
-    dij=construct_dij(n_orb,"reps.dat")
+    dij=construct_dij(n_orb,n_spin,"reps.dat")
     i_rep=0
     print("Check if tij commutes with reps:")
     for rep in dij:
@@ -428,13 +430,14 @@ def add_hopping(H,spin_names,orb_names,int_in,verbose=False):
 
     # For testing to check the symmetry of the tij matrix
     n_orb=len(orb_names)
+    n_spin=len(spin_names)
 
     # TEST: use diagonal basis
     if int_in['diag_basis']:
         tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='tij')
 
     if int_in['sym']: # Check the sym verus provided reps
-        check_sym_t_mat(tij,n_orb)
+        check_sym_t_mat(tij,n_orb,n_spin)
 
 
     # Make noniteracting operator
