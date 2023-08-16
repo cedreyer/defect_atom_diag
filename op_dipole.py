@@ -11,7 +11,7 @@ import numpy as np
 import sympy as sp
 import scipy as scp
 import sys
-
+import re
 
 # Calculate dipole matrix element between states, and symmetry characters
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
@@ -28,8 +28,6 @@ def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
     spin_names: List of spins
     orb_names: Orbital names
     fops: Many-body operators
-    eigensys:  states, energies, etc. from ad
-    state: Index of the state (in energy ordering)
     operator: Operator to get exp value of
 
     Outputs:
@@ -417,7 +415,7 @@ def print_dipole_mat(n_dipol,ad,spin_names,orb_names,fops,dipol_file,eigensys,ou
 
 #*************************************************************************************
 # Get the symmetry eigenvalue of a state
-def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
+def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
     '''
     Get symmetry character for given symmetry operation. First we
     express state as raising operators applied to vacuum, then
@@ -432,6 +430,7 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     ad: Solution to atomic problem
     eigensys: List of eigenstates (see sort_states)
     Dij: n_orb*n_spin x n_orb*n_spin representation matrix 
+    cmplx: Are the weights complex?
 
     Outputs: 
     char: Symmetry character <\psi_i | \hat{R} \vert \psi_i >
@@ -440,23 +439,33 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij):
     n_orb=len(orb_names)
     n_spin=len(spin_names)
     n_fock= n_orb*n_spin
-    
-    i_state=eigensys[i_mb_st][0].split('>')
-    
-    n_i=len(i_state)
 
+    if cmplx:
+        #i_state=eigensys[i_mb_st][0].split('") + |" | \*\|')HERERE
+        #i_state=re.split('(\)\s+\s | >\s-\s)',eigensys[i_mb_st][0]) HERERERE
+        print(i_state)
+        quit()
+
+    else:
+        i_state=eigensys[i_mb_st][0].split('>')
+    
     op_on_vacuum=Operator()
-    for ii in range(0,n_i):
-        
-        coeff1 = i_state[ii].split("*")[0]
+    for ii,state in enumerate(i_state):
+
+        if cmplx:
+
+            try:
+                coeff1 = complex(state.split('>*(')[1].replace('*I', 'j').replace(' ', ''))
+            except:
+                print(state.split('>*(')[1].replace('*I', 'j').replace(' ', ''))
+                
+            state1 = list(state.split('>*(')[0].replace('|',''))            
+        else:
+            coeff1=float(str(state.split("*")[1]).replace(" ",""))
+            state1 = list(state.split("*")[1].replace('|',''))
+
         if coeff1 == '':
             continue
-
-        # Remove space in negative numbers
-        coeff1=float(str(coeff1).replace(" ",""))
-
-        state1 = list(i_state[ii].split("*")[1])
-        state1.remove('|')
 
         # Express state as raising operators to be applied to vacuum
         jj = n_spin*n_orb-1 # We go from right to left
@@ -626,7 +635,7 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
  
 #*************************************************************************************
 # Calculates and sums the characters for orbitals in a degenerate group 
-def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,out_label,state_limit=41,verbose=True,spin=True):
+def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,out_label,cmplx,state_limit=41,verbose=True,spin=True):
     '''
     Sum the characters for a degenerate manifold of many-body states.
 
@@ -640,6 +649,7 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
     counts: List of degeneracies
     out_label: Label for output files
     state_limit: Number of states to find characters for
+    cmplx: Will the weights be real or complex?
     verbose: Write stuff to STOUT
     spin: Spinfull reps?
     
@@ -683,11 +693,11 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
                         dij_kron=np.kron(no_spin,rep[1])
 
                     i_mb_st=i_state+state
-                    char+=get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron)
+                    char+=get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)
                     
                     #TEST
                     if verbose:
-                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron))
+                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplex))
                 rf.write(' %s %s %s %10.5f  \n' % \
                              ("Deg: ",deg," Char: ",char.real))
 
