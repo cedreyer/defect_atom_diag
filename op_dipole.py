@@ -440,32 +440,14 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
     n_spin=len(spin_names)
     n_fock= n_orb*n_spin
 
-    if cmplx:
-        #i_state=eigensys[i_mb_st][0].split('") + |" | \*\|')HERERE
-        #i_state=re.split('(\)\s+\s | >\s-\s)',eigensys[i_mb_st][0]) HERERERE
-        print(i_state)
-        quit()
-
-    else:
-        i_state=eigensys[i_mb_st][0].split('>')
-    
     op_on_vacuum=Operator()
-    for ii,state in enumerate(i_state):
+    for i_state,state in enumerate(eigensys[i_mb_st][0][1]):
 
-        if cmplx:
-
-            try:
-                coeff1 = complex(state.split('>*(')[1].replace('*I', 'j').replace(' ', ''))
-            except:
-                print(state.split('>*(')[1].replace('*I', 'j').replace(' ', ''))
-                
-            state1 = list(state.split('>*(')[0].replace('|',''))            
-        else:
-            coeff1=float(str(state.split("*")[1]).replace(" ",""))
-            state1 = list(state.split("*")[1].replace('|',''))
-
+        coeff1=eigensys[i_mb_st][0][0][i_state]
         if coeff1 == '':
             continue
+
+        state1=list(map(str,state.replace('|','').replace('>','')))
 
         # Express state as raising operators to be applied to vacuum
         jj = n_spin*n_orb-1 # We go from right to left
@@ -697,7 +679,7 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
                     
                     #TEST
                     if verbose:
-                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplex))
+                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx))
                 rf.write(' %s %s %s %10.5f  \n' % \
                              ("Deg: ",deg," Char: ",char.real))
 

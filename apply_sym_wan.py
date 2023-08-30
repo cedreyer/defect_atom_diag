@@ -189,19 +189,33 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
         # compared to cube and to latt vectors:
         if flip_xz:
             wann1=wann1.transpose(2,1,0)
-            #n_meshes[-1][0], n_meshes[-1][2] = n_meshes[-1][2], n_meshes[-1][0]
-            #delrs[-1][0], delrs[-1][2] = delrs[-1][2], delrs[-1][0]
-
-        #write_wann('TEST_1.xsf',wann1,n_meshes[-1],headers[-1])
         
         # Convert to cartesian coordinates.
         if convert_lat:
-
+            
             # normalize the lattice vectors using the first vector
             lat_vec_norm=lat_vec/np.linalg.norm(lat_vec[0,:])
+
+            # Have to do this for specific hexagonal cells :(
+            #lat_vec_hex=np.array([[ 0.5,        -0.86602541,  0.        ],
+            #                      [ 0.5,         0.86602541,  0.,        ],
+            #                      [ 0.,          0.,          1.,        ]])
+
+            #if np.linalg.norm(lat_vec_norm-lat_vec_hex) < 1.0e-5:
+            #    offset=[n_meshes[0][0]/2,0.0,0.0]
+            #else:
+            #    offset=[0.0,0.0,0.0]
+
+            # Make sure transformed center will fall in range of mesh. NEEDS MORE TESTING
+            cen_tst=np.dot(np.array([n_meshes[0][0]/2,n_meshes[0][1]/2,n_meshes[0][2]/2]),np.linalg.inv(lat_vec_norm).T)
+            offset=np.zeros(3)
+            for idir in range(3):
+                if np.abs(cen_tst[idir]-n_meshes[0][idir]) < 5.0: # Magic number :( not sure what exactly this should be
+                    offset[idir]=n_meshes[0][idir]/2
             
+                
             # Apply symmetry element
-            wann1=sni.affine_transform(wann1,np.linalg.inv(lat_vec_norm).T)
+            wann1=sni.affine_transform(wann1,np.linalg.inv(lat_vec_norm).T,offset=offset)
         
             # Recenter wannier function
             wann1,_com=center_wan_func(wann1,n_meshes[0])
