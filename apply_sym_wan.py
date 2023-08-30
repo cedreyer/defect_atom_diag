@@ -412,7 +412,7 @@ def get_sym_ops(pg_symbol,verbose=True,hex_to_cart=False):
 
 #*************************************************************************************
 # For a given symmetry operation, calculate the representation. For now specialize to cube format
-def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each'):
+def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',clean=True):
     '''Calculate the single-particle symmetry representation matrix for
     symmerty operation given by sym_op. For now specialize to cube format
 
@@ -420,7 +420,7 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each'):
     sym_op: 2D, 3x3 array for the symmetry operation
     wf_file_names: Names of the wannier function files.
     file_type: cube or xsf
-    cheat: To help get pretty looking representation matricies, do
+    clean: To help get pretty looking representation matricies, do
     some strategic rounding :).
 
     Outputs:
@@ -458,6 +458,14 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each'):
                 wann_j_sym=shift_wann_func(wann_j_sym,coms[i])
             
             sym_rep=int_3d(np.multiply(wann_i,wann_j_sym),delr)
+
+
+            if clean:
+                clean_tol=1.0e-2
+                clean_vals=[0.0,1.0,-1.0,np.sqrt(3)/2,-np.sqrt(3)/2,0.5,-0.5]
+                for val in clean_vals:
+                    if np.abs(sym_rep-val) < clean_tol:
+                        sym_rep=val
             
             rep[i,j]=sym_rep
             
