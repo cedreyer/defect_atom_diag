@@ -347,7 +347,7 @@ def wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=[],verbose=False):
 
 #*************************************************************************************
 # Check if the  U matrix obeys symmetry of single particle reps
-def check_sym_u_mat(uijkls,n_orb,n_spin):
+def check_sym_u_mat(uijkls,n_orb,n_spin,dij=[]):
     '''
     Checks to see if U matrix is consistent with symmetry of single
     particle reps
@@ -361,7 +361,8 @@ def check_sym_u_mat(uijkls,n_orb,n_spin):
     '''
 
     # Get reps from reps.dat
-    dij=construct_dij(n_orb,n_spin,"reps.dat")
+    if not dij:
+        dij=construct_dij(n_orb,n_spin,"reps.dat")
 
     for uijkl in uijkls:
         i_rep=0
@@ -380,7 +381,7 @@ def check_sym_u_mat(uijkls,n_orb,n_spin):
 
 #*************************************************************************************
 # Check if the hopping obeys symmetry
-def check_sym_t_mat(tij,n_orb,n_spin):
+def check_sym_t_mat(tijs,n_orb,n_spin,dij=[]):
     '''
     Checks to see if tij matrix is consistent with symmetry of single
     particle reps
@@ -395,13 +396,14 @@ def check_sym_t_mat(tij,n_orb,n_spin):
     '''
 
     # Get reps from reps.dat
-    dij=construct_dij(n_orb,n_spin,"reps.dat")
-    i_rep=0
-    print("Check if tij commutes with reps:")
-    for rep in dij:
-        print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",\
-                               np.amax(np.matmul(rep[1],tij)-np.matmul(tij,rep[1]))))
-        i_rep+=1
+    if not dij:
+        dij=construct_dij(n_orb,n_spin,"reps.dat")
+
+    for tij in tijs:
+        print("Check if tij commutes with reps:")
+        for i_rep,rep in enumerate(dij):
+            print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",\
+                                   np.amax(np.matmul(rep[1],tij)-np.matmul(tij,rep[1]))))
 
     return
 #*************************************************************************************
@@ -1275,16 +1277,10 @@ def read_tij(wan_file,cmplx,spin_names,orb_names,fops):
 
     n_orb=len(orb_names)
 
-#    wan_file_seed=wan_file.replace('_hr.dat','')
+    # Make sure tij is list type
+    if not isinstance(wan_file, list):
+        wan_file=[wan_file]
     
-    # Test if we have different tij for up and down
-#    if os.path.isfile(wan_file_seed+'.1_hr.dat'):
-#        spin_pol=True
-#        wan_files=[wan_file_seed+'.1_hr.dat',wan_file_seed+'.2_hr.dat']
-#    else:
-#        spin_pol=False
-#        wan_files=[wan_file]
-
     tijs=[]
     # Read in tij from wannier_hr file
     for wfile in wan_file:
@@ -1642,8 +1638,10 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         start = time.time()
         if int_in['cmplx']:
             print('WARNING: NOT TESTED MB characters for complex inputs at the moment')
-        #else:
-        mb_degerate_character("reps.dat",fops,orb_names,spin_names,ad,eigensys,counts,out_label,int_in['cmplx'],state_limit=n_print[1],spin=mb_char_spin)
+
+        dij_orb_spin=construct_dij(len(orb_names),len(spin_names),'reps.dat',flip=True)
+        
+        mb_degerate_character(fops,orb_names,spin_names,ad,eigensys,counts,out_label,int_in['cmplx'],dij_orb_spin=dij_orb_spin,state_limit=n_print[1],spin=mb_char_spin)
         end = time.time()
         print("Time to print out characters of degeneracies:",end-start)
 

@@ -13,6 +13,8 @@ import scipy as scp
 import sys
 import re
 
+from apply_sym_wan import *
+
 # Calculate dipole matrix element between states, and symmetry characters
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
 # 02/25/20
@@ -479,6 +481,9 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
         op_on_vacuum += coeff1*op_vac
 
 
+    #TEST
+    #print(i_state,op_on_vacuum)
+    
     # Test to make sure that the vacuum state is in the space
     if np.dot(ad.vacuum_state,ad.vacuum_state) > 1.e-10:
         
@@ -487,7 +492,9 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
         state_l = np.zeros((int(ad.full_hilbert_space_dim)))
         state_l[int(eigensys[i_mb_st][3])]=1
 
-        char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
+        state_r=act(op_on_vacuum,ad.vacuum_state,ad)
+        #char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
+        char = np.dot(state_l,state_r)
 
     # For constrained occupancy we need to do this without the vacuum state
     else:
@@ -538,7 +545,7 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
     
         char=np.dot(state_l_less,state_r)
 
-    return char
+    return char,state_r
  
 #*************************************************************************************
 # Get the matricies for symmetry representations
@@ -578,8 +585,7 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
                 el[-1]=el[-1].strip() # Get rid of new line
                 for jj in el:
                     rot_mat.append(jj)
-            #TEST
-            #print(rot_mat)
+                    
             rot_mat = np.reshape(np.array(rot_mat,dtype=float),(3,3))
 
         # Orbital part of the representaion
@@ -617,12 +623,12 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
  
 #*************************************************************************************
 # Calculates and sums the characters for orbitals in a degenerate group 
-def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,out_label,cmplx,state_limit=41,verbose=True,spin=True):
+def mb_degerate_character(fops,orb_names,spin_names,ad,eigensys,counts,out_label,cmplx,dij_orb_spin=[],repsfile=[],state_limit=41,verbose=True,spin=True):
     '''
     Sum the characters for a degenerate manifold of many-body states.
 
     Input:
-    repsfile: File containing symmetry representations
+    dij_orb_spin: Symmetry representations
     fops: Many-body operators
     orb_names: List of orbitals
     spin_names: List of spins
@@ -642,7 +648,14 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
     # Extract the rotation matricies and reps for orbitals
     n_orb=len(orb_names)
     n_spin=len(spin_names)
-    dij_orb_spin=construct_dij(n_orb,n_spin,repsfile,flip=True)
+
+    # dij
+    if not dij_orb_spin and repsfile:
+        dij_orb_spin=construct_dij(n_orb,n_spin,repsfile,flip=True)
+
+    elif not dij_orb_spin and not repsfile:
+        raise('You need to enter a reps filename or a dij list.' )
+        
 
     n_reps=len(dij_orb_spin)
  
@@ -656,6 +669,9 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
             # Print symmetry operation
             rf.write("Sym op:\n")
             sym_op = rep[0]
+
+            print(sym_op)
+            
             for i in range(0,3):
                 rf.write('%3.1f %3.1f %3.1f\n' % (sym_op[i,0],sym_op[i,1],sym_op[i,2]))
 
@@ -675,24 +691,28 @@ def mb_degerate_character(repsfile,fops,orb_names,spin_names,ad,eigensys,counts,
                         dij_kron=np.kron(no_spin,rep[1])
 
                     i_mb_st=i_state+state
-                    char+=get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)
+                    char+=get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[0]
                     
-                    #TEST
                     if verbose:
-                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx))
+                        print(i_mb_st,get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[0])
                 rf.write(' %s %s %s %10.5f  \n' % \
                              ("Deg: ",deg," Char: ",char.real))
-
-                #TEST
-                print(' %s %s %s %s  \n' % \
-                      ("Deg: ",deg," Char: ",char))
+                if verbose:
+                    print(' %s %s %s %s  \n' % \
+                          ("Deg: ",deg," Char: ",char))
 
                 i_state+=int(deg)
                 if i_state > state_limit:
                     break
 
+
+                #TEST
+                #raise
+
             # Let us know our progress
-            print( ' %s %s %s %s' % ("Done sym_op",i_rep,"/",n_reps))
+            if verbose:
+                print( ' %s %s %s %s' % ("Done sym_op",i_rep,"/",n_reps))
+                
             i_rep += 1
 
     return
@@ -858,5 +878,214 @@ def spin_orbit_L2_op(fops,ml_order):
     L2_SO=Lz*Lz + 0.5*(Lp*Lm + Lm*Lp)
     
     return L2_SO
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
+def get_char_table(pg_symbol):
+    '''
+    Get information from the character table of point group. For now need to hard code each symmetry
+
+    Inputs:
+    pg_symbol: Point group symbol
+
+    Outputs:
+    char_table: List with sym names, multiplicities, irrep labels, characters, and one symmetry operation per family
+
+    '''
+
+    ops=get_sym_ops(pg_symbol)
+        
+    if pg_symbol=='m-3m' or pg_symbol=='Oh':
+        
+        sym_names = ['1','4','2_{100}','3','2_{110}','-1','-4','m_{100}','-3','m_{110}']
+        sym_mult = [1,6,3,8,6,1,6,3,8,6]
+        irrep_labels = ['A1g','A1u','A2g','A2u','Eg','Eu','T2u','T2g','T1u','T1g']
+        irrep_deg = [1,1,1,1,2,2,3,3,3,3]
+        characters = np.array([[1,1,1,1,1,1,1,1,1,1],\
+                               [1,1,1,1,1,-1,-1,-1,-1,-1],\
+                               [1,-1,1,1,-1,1,-1,1,1,-1],\
+                               [1,-1,1,1,-1,-1,1,-1,-1,1],\
+                               [2,0,2,-1,0,2,0,2,-1,0],\
+                               [2,0,2,-1,0,-2,0,-2,1,0],\
+                               [3,-1,-1,0,1,-3,1,1,0,-1],\
+                               [3,-1,-1,0,1,3,-1,-1,0,1],\
+                               [3,1,-1,0,-1,-3,-1,1,0,1],\
+                               [3,1,-1,0,-1,3,1,-1,0,-1]])
+
+        ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
+        ops_index=[[9],[3,12,32,34,42,46],[20,25,28],[1,11,14,17,22,35,36,43],[0,15,24,27,29,40],[13],[5,7,19,23,38,47],[6,8,31],[2,16,18,33,37,39,41,45],[4,10,21,26,30,44]]
+        
+        char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
+                    'characters':characters,'ops_one_each':ops_one_each,'ops_index':ops_index,'all_ops':ops}
+        
+    else:
+        raise('Point group not coded.')
+
+
+    return char_table
+       
+#*************************************************************************************
+
+#*************************************************************************************
+# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
+def get_irrep_projection(pg_symbol,fops,orb_names,spin_names,ad,eigensys,repsfile,n_print,spin=False,cmplx=False,out_label='',verbose=True):
+    '''
+    '''
+
+    # Info from character table
+    char_table=get_char_table(pg_symbol)
+    characters=char_table['characters']
+    h=np.sum(np.array(char_table['sym_mult']))
+    n_ops=len(char_table['sym_names'])
+
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+
+    # Single particle representations
+    dij=construct_dij(n_orb,n_spin,repsfile,flip=True) # FLIP OR NOT?????
+    
+    # Loop over state
+    states_proj=[]
+    for i_mb_st in range(n_print[0],min(n_print[1],len(eigensys))):
+
+        # Project onto irreps
+        proj_irreps=[]
+        for irrep in range(n_ops):
+            proj=0
+            for sym_el in range(h):
+
+                # Get the single-particle rep for this symmetry element
+                rep=dij[sym_el]
+
+                # Index for character table stuff
+                for iop,op in enumerate(char_table['ops_index']):
+                    if sym_el in op:
+                        char_index=iop
+                        break
+                
+                # Whether or not to include spin
+                if spin:
+                    dij_kron=np.kron(rep[2],rep[1])
+                else:
+                    no_spin=np.array([[1,0],[0,1]])
+                    dij_kron=np.kron(no_spin,rep[1])
+                
+                proj_R=(char_table['irrep_deg'][irrep]/h)*characters[irrep,char_index]*get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[1]
+                proj+= proj_R
+
+            proj_irreps.append(proj)
+        states_proj.append(proj_irreps)
+
+    # Write out results to file
+    if out_label and not out_label.endswith('_'): out_label+='_'
+    filename=out_label+'irrep_proj.dat'
+
+    with open(filename, 'w') as proj_file:
+        proj_file.write('# state number   irrep name   weight \n')
+        
+        for istate,state in enumerate(states_proj):
+            for iproj,proj_irreps in enumerate(state):
+                norm=np.linalg.norm(proj_irreps)
+
+                if norm > 1e-5:
+                    proj_file.write('{:d}  {}  {:6.4f} \n'.format(istate,char_table['irrep_labels'][iproj],np.linalg.norm(proj_irreps)))
+
+                    if verbose:
+                        print('{:d}  {}  {:6.4f} '.format(istate,char_table['irrep_labels'][iproj],np.linalg.norm(proj_irreps)))
+                
+            proj_file.write('\n')
+            if verbose: print('')
+
+    return char_table['irrep_labels'],states_proj
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
+def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
+    '''
+    Use the weak form of the projector: \hat{P}^{\Gamma_n}=\frac{l_n}{h}\sum_R \chi^{\Gamma_n}(R)\hat{P}^R 
+    to make a symmetrtic tij matrix with cfs
+    
+    Inputs:
+    pg_symbol: Symbol of the point group
+    orb_names: Names of orbitals
+    spin_names: Names of spins
+    dij: Single-particle symmetry representations of the bais
+    cfs: Table for crystal-field splitting energies for each irrep
+    spin: Whether to include spin
+    
+    Outputs:
+    tij: Symmetrized tij with cfs
+    proj_irreps: Projection of identity on each irrep
+    
+    '''    
+    
+    # Info from character table
+    char_table=get_char_table(pg_symbol)
+    characters=char_table['characters']
+    h=np.sum(np.array(char_table['sym_mult']))
+    n_ops=len(char_table['sym_names'])
+
+    # Fundamental operators
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    
+    # Generate fully symmetric tij which is big identity matrix
+    tij=np.identity(n_orb*n_spin)
+    
+    # Project onto irreps
+    proj_irreps=[]
+    for irrep in range(n_ops):
+        proj=0
+        for sym_el in range(h):
+
+            # Get the single-particle rep for this symmetry element
+            rep=dij[sym_el]
+
+            # Index for character table stuff
+            for iop,op in enumerate(char_table['ops_index']):
+                if sym_el in op:
+                    char_index=iop
+                    break
+
+            # Whether or not to include spin
+            if spin:
+                dij_kron=np.kron(rep[2],rep[1])
+            else:
+                no_spin=np.array([[1,0],[0,1]])
+                dij_kron=np.kron(no_spin,rep[1])
+
+            proj_R=(char_table['irrep_deg'][irrep]/h)*characters[irrep,char_index]*np.matmul(dij_kron,tij)
+            proj+= proj_R
+
+        proj_irreps.append([char_table['irrep_labels'][irrep],proj])
+
+    # Test the cfs
+    if not cfs:
+        cfs=[np.ones(n_ops),np.ones(n_ops)]
+    elif not isinstance(cfs,list):
+        cfs=[cfs]
+    if len(cfs)==1:
+        cfs=[cfs[0],cfs[0]]
+    
+    if len(cfs[0]) != n_ops or len(cfs[1]) != n_ops:
+        raise ValueError('cfs must length equal to number of irreps.')
+    
+    # Now make tij
+    tij=[]
+    for ispin in range(n_spin):
+        tij_spin=np.zeros((n_orb,n_orb))
+        for icf,cf in enumerate(cfs[ispin]):
+            #print(proj_irreps[icf][1].shape)
+            tij_spin+=cf*proj_irreps[icf][1][0+n_orb*ispin:n_orb+n_orb*ispin,0+n_orb*ispin:n_orb+n_orb*ispin]
+    
+        tij.append(tij_spin)
+    
+    
+    return tij,proj_irreps
 
 #*************************************************************************************

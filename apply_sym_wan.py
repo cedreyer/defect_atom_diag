@@ -359,7 +359,7 @@ def interpolate_wann(wanns,delr,n_mesh_fine):
 
 #*************************************************************************************
 # Extract the rotation matricies from the pymatgen symmetry object
-def get_sym_ops(pg_symbol,verbose=True,hex_to_cart=False):
+def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False):
     '''
     Get point symmetry operations from pymatgen.
     
@@ -429,6 +429,7 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
     # Initialize rep
     n_wf=len(wanns)
+    #rep=np.zeros([n_wf,n_wf],dtype=float)
     rep=np.zeros([n_wf,n_wf],dtype=float)
 
     # Get center of masses
@@ -462,7 +463,7 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
             if clean:
                 clean_tol=1.0e-2
-                clean_vals=[0.0,1.0,-1.0,np.sqrt(3)/2,-np.sqrt(3)/2,0.5,-0.5]
+                clean_vals=[0.0,1.0,-1.0,np.sqrt(3)/2,-np.sqrt(3)/2,0.5,-0.5,0.25,-0.25,1/np.sqrt(2),-1/np.sqrt(2),np.sqrt(3/8),-np.sqrt(3/8),np.sqrt(5/8),-np.sqrt(5/8)]
                 for val in clean_vals:
                     if np.abs(sym_rep-val) < clean_tol:
                         sym_rep=val
