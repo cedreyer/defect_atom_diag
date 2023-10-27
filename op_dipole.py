@@ -930,7 +930,7 @@ def get_char_table(pg_symbol):
 
 #*************************************************************************************
 # Get expectation values of an operator for all states. Should be used in many of the operations below!!!
-def get_irrep_projection(pg_symbol,fops,orb_names,spin_names,ad,eigensys,repsfile,n_print,spin=False,cmplx=False,out_label='',verbose=True):
+def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,repsfile=[],dij=[],spin=False,cmplx=False,out_label='',verbose=True):
     '''
     '''
 
@@ -940,12 +940,16 @@ def get_irrep_projection(pg_symbol,fops,orb_names,spin_names,ad,eigensys,repsfil
     h=np.sum(np.array(char_table['sym_mult']))
     n_ops=len(char_table['sym_names'])
 
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
     n_orb=len(orb_names)
     n_spin=len(spin_names)
 
     # Single particle representations
-    dij=construct_dij(n_orb,n_spin,repsfile,flip=True) # FLIP OR NOT?????
-    
+    if not dij and repsfile:
+        dij=construct_dij(n_orb,n_spin,repsfile,flip=False)
+    elif not dij and not repsfile:
+        raise Exception('Need to pass a dij list or filename for reps.')
+        
     # Loop over state
     states_proj=[]
     for i_mb_st in range(n_print[0],min(n_print[1],len(eigensys))):
@@ -967,10 +971,10 @@ def get_irrep_projection(pg_symbol,fops,orb_names,spin_names,ad,eigensys,repsfil
                 
                 # Whether or not to include spin
                 if spin:
-                    dij_kron=np.kron(rep[2],rep[1])
+                    dij_kron=np.kron(rep[2],np.flip(rep[1]))
                 else:
                     no_spin=np.array([[1,0],[0,1]])
-                    dij_kron=np.kron(no_spin,rep[1])
+                    dij_kron=np.kron(no_spin,np.flip(rep[1]))
                 
                 proj_R=(char_table['irrep_deg'][irrep]/h)*characters[irrep,char_index]*get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[1]
                 proj+= proj_R
