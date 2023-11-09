@@ -395,6 +395,8 @@ def check_sym_t_mat(tijs,n_orb,n_spin,dij=[]):
     None
     '''
 
+    #TODO: If we have SOC, this will need to be modified to construct the full spinful reps
+    
     # Get reps from reps.dat
     if not dij:
         dij=construct_dij(n_orb,n_spin,"reps.dat")
@@ -403,7 +405,7 @@ def check_sym_t_mat(tijs,n_orb,n_spin,dij=[]):
         print("Check if tij commutes with reps:")
         for i_rep,rep in enumerate(dij):
             print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",\
-                                   np.amax(np.matmul(rep[1],tij)-np.matmul(tij,rep[1]))))
+                                   np.abs(np.amax(np.matmul(rep[1],tij)-np.matmul(tij,rep[1])))))
 
     return
 #*************************************************************************************

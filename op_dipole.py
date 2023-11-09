@@ -914,15 +914,38 @@ def get_char_table(pg_symbol):
                                [3,1,-1,0,-1,-3,-1,1,0,1],\
                                [3,1,-1,0,-1,3,1,-1,0,-1]])
 
-        ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
+        #ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
         ops_index=[[9],[3,12,32,34,42,46],[20,25,28],[1,11,14,17,22,35,36,43],[0,15,24,27,29,40],[13],[5,7,19,23,38,47],[6,8,31],[2,16,18,33,37,39,41,45],[4,10,21,26,30,44]]
+                
+    elif pg_symbol=='6/mmm' or pg_symbol=='D6h':
         
-        char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
-                    'characters':characters,'ops_one_each':ops_one_each,'ops_index':ops_index,'all_ops':ops}
+        sym_names = ['1','6','3','2_z','2_{120}','2_{100}','-1','-6','-3','m_z','m_{120}','m_{100}']
+        sym_mult = [1,2,2,1,3,3,1,2,2,1,3,3]
+        irrep_labels = ['A1g','A1u','A2g','A2u','B1g','B1u','B2g','B2u','E2u','E2g','E1u','E1g']
+        irrep_deg = [1,1,1,1,1,1,1,1,2,2,2,2]
+        characters = np.array([[1,1,1,1,1,1,1,1,1,1,1,1],\
+                               [1,1,1,1,1,1,-1,-1,-1,-1,-1,-1],\
+                               [1,1,1,1,-1,-1,1,1,1,1,-1,-1],\
+                               [1,1,1,1,-1,-1,-1,-1,-1,-1,1,1],\
+                               [1,-1,1,-1,1,-1,1,-1,1,-1,1,-1],\
+                               [1,-1,1,-1,1,-1,-1,1,-1,1,-1,1],\
+                               [1,-1,1,-1,-1,1,1,-1,1,-1,-1,1],\
+                               [1,-1,1,-1,-1,1,-1,1,-1,1,1,-1],\
+                               [2,-1,-1,2,0,0,-2,1,1,-2,0,0],\
+                               [2,-1,-1,2,0,0,2,-1,-1,2,0,0],\
+                               [2,1,-1,-2,0,0,-2,-1,1,2,0,0],\
+                               [2,1,-1,-2,0,0,2,1,-1,-2,0,0]])
+        
+        #ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
+        ops_index=[[4],[9,15],[1,6],[7],[13,16,8],[0,11,5],[3],[18,20],[2,22],[10],[17,19,14],[21,23,12]]
+        #Not sure about: 5, 2_110; 8, 2_1-10; 12, m_110; 14, m_1-10
         
     else:
         raise('Point group not coded.')
 
+
+    char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
+                'characters':characters,'ops_index':ops_index,'all_ops':ops}
 
     return char_table
        
@@ -1007,7 +1030,6 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
 #*************************************************************************************
 
 #*************************************************************************************
-# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
 def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
     '''
     Use the weak form of the projector: \hat{P}^{\Gamma_n}=\frac{l_n}{h}\sum_R \chi^{\Gamma_n}(R)\hat{P}^R 
@@ -1082,7 +1104,7 @@ def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
     # Now make tij
     tij=[]
     for ispin in range(n_spin):
-        tij_spin=np.zeros((n_orb,n_orb))
+        tij_spin=np.zeros((n_orb,n_orb),dtype=complex)
         for icf,cf in enumerate(cfs[ispin]):
             #print(proj_irreps[icf][1].shape)
             tij_spin+=cf*proj_irreps[icf][1][0+n_orb*ispin:n_orb+n_orb*ispin,0+n_orb*ispin:n_orb+n_orb*ispin]
