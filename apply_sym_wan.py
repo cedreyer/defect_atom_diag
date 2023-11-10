@@ -3,6 +3,7 @@
 import numpy as np
 import scipy.interpolate as inter
 import scipy.ndimage as sni
+from scipy.special import sph_harm
 import scipy as scp
 import math 
 import time
@@ -15,7 +16,7 @@ from settings_CED import JonesFaithfulTransformation_CED
 
 #*************************************************************************************
 # Load the cube files
-def load_cube_files(wf_file_names,convert_lat=False):
+def load_cube_files(wf_file_names,convert_lat=False, path='./'):
     '''
     Load a wannier functions in cube file format. Note that the option
     wannier_plot_mode = molecule should be used to center the wannier
@@ -23,7 +24,9 @@ def load_cube_files(wf_file_names,convert_lat=False):
 
     Inputs: 
     wf_file_names: Names of the wannier function files
-    
+    convert_lat: Convert lattice to cartesian
+    path: path where files are located
+
     Outputs:
     wanns: list of wannier functions on 3D real-space mesh
     delr: 1D 3 element array containing mesh spacing
@@ -38,7 +41,7 @@ def load_cube_files(wf_file_names,convert_lat=False):
     for ifile,filename1 in enumerate(wf_file_names):
 
         # Open file
-        f1=open(filename1)
+        f1=open(path+filename1)
         lines1=f1.readlines()
 
         # Get basic info, should be the same for all files
@@ -104,14 +107,16 @@ def load_cube_files(wf_file_names,convert_lat=False):
 
 #*************************************************************************************
 # Load an xsf files
-def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
+def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
     '''
-    Load a wannier function in xsf file format. wannier_plot_mode =
-    molecule is not available in this case
+    Load some wannier functions in xsf file format.
 
     Inputs: 
     wf_file_names: Names of the wannier function files 
-    
+    convert_lat: Convert to cartesian
+    flip_xz: Need to flip x and z for some reason in xsf files
+    path: path where files are located 
+
     Outputs:
     wanns: List of wannier functions on 3D real-space mesh
     delr: 1D 3 element array containing mesh spacing
@@ -127,7 +132,7 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
     for ifile,filename1 in enumerate(wf_file_names):
 
         # Open file
-        f1=open(filename1)
+        f1=open(path+filename1)
         lines1=f1.readlines()
         f1.close()
 
@@ -194,16 +199,6 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True):
             
             # normalize the lattice vectors using the first vector
             lat_vec_norm=lat_vec/np.linalg.norm(lat_vec[0,:])
-
-            # Have to do this for specific hexagonal cells :(
-            #lat_vec_hex=np.array([[ 0.5,        -0.86602541,  0.        ],
-            #                      [ 0.5,         0.86602541,  0.,        ],
-            #                      [ 0.,          0.,          1.,        ]])
-
-            #if np.linalg.norm(lat_vec_norm-lat_vec_hex) < 1.0e-5:
-            #    offset=[n_meshes[0][0]/2,0.0,0.0]
-            #else:
-            #    offset=[0.0,0.0,0.0]
 
             # Make sure transformed center will fall in range of mesh. NEEDS MORE TESTING
             cen_tst=np.dot(np.array([n_meshes[0][0]/2,n_meshes[0][1]/2,n_meshes[0][2]/2]),np.linalg.inv(lat_vec_norm).T)
@@ -462,10 +457,12 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
             if clean:
                 clean_tol=1.0e-2
-                clean_vals=[0.0,1.0,-1.0,np.sqrt(3)/2,-np.sqrt(3)/2,0.5,-0.5,0.25,-0.25,1/np.sqrt(2),-1/np.sqrt(2),np.sqrt(3/8),-np.sqrt(3/8),np.sqrt(5/8),-np.sqrt(5/8)]
+                clean_vals=[0.0,1.0,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)]
                 for val in clean_vals:
-                    if np.abs(sym_rep-val) < clean_tol:
+                    if sym_rep-val < clean_tol:
                         sym_rep=val
+                    elif sym_rep+val < clean_tol:
+                        sym_rep=-val
             
             rep[i,j]=sym_rep
             
@@ -639,6 +636,126 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
 
         # Calculate orbital part of representation
         rep=representation_fast(sym_op,wanns,delr,n_mesh,header)
+            
+        # Get the spin part
+        spin_mat=get_spin_rep(sym_op)
+                
+        # Write out orbital part
+        f.write("Representation (Orb)\n")
+        for i in range(0,n_orb):
+            for j in range(0,n_orb):
+                f.write('%12.8f' % (rep[i,j]))
+            f.write('\n')
+
+        f.write("Character\n")
+        f.write('%5.3f\n' % np.trace(rep))
+        if verbose: print("Orb Character: ",str(np.trace(rep)))
+
+        # Write out spin matrix
+        f.write("Representation (spin)\n")
+        f.write('{:.10f}   {:.10f}\n'.format(spin_mat[0,0],spin_mat[0,1]))
+        f.write('{:.10f}   {:.10f}\n'.format(spin_mat[1,0],spin_mat[1,1]))
+        f.write("Spin character\n")
+        f.write('{:.5f}'.format(np.trace(spin_mat)))
+        f.write('\n')
+        f.write('\n')
+        f.write('\n')
+        if verbose: print("Spin Character: ",str(np.trace(spin_mat)))
+
+    f.close()
+
+    return
+#*************************************************************************************
+
+#*************************************************************************************
+# Print represeantations
+def print_reps_wann_in(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
+    '''
+    Different version of print_reps that takes as input wanns instead of reading them in from file.
+    
+    Creates file out_label+'reps.dat' that includes: The symmetry operations, the
+    orbital representations and characters, and the spin 1/2
+    representations and characters.
+
+    Inputs:
+    wanns : List of real-space wannier functions on cartesian grid
+    delr : Three element list of mesh spacing in x, y, z
+    n_mesh : Three element list of number of mesh points in x, y, z
+    point_grp : symbol for point group
+    out_label : Label for reps file
+    verbose : Write out stuff to stdout
+    sym_op_lim : Limit to just a subset of symmetry operations 
+    use_ylm : Directly generate reps from ylms if set to >= 0
+    rad_scale : Scale for radial exponential
+
+    Outputs: 
+    None.
+
+    Example of output format:
+    Rotation matrix
+     -1.0 0.0 0.0
+      0.0 1.0 0.0
+      0.0 0.0 -1.0
+    Representation (Orb)
+      1.00000000  0.00000000  0.00000000  0.00000000  0.00000000
+      0.00000000  1.00000000  0.00000000  0.00000000  0.00000000
+      0.00000000  0.00000000 -1.00000000  0.00000000  0.00000000
+      0.00000000  0.00000000  0.00000000  1.00000000  0.00000000
+      0.00000000  0.00000000  0.00000000  0.00000000 -1.00000000
+    Character
+      1.000
+    Representation (spin)
+      0.0000000000+0.0000000000j   -1.0000000000+0.0000000000j
+      1.0000000000+0.0000000000j   0.0000000000+0.0000000000j
+    Spin character
+      0.00000+0.00000j
+    '''
+
+    # Get symmetry operations from pymatgen
+    if point_grp=='3m' or point_grp=='-3m' or point_grp=='6/mmm':
+        pt_sym_ops=get_sym_ops(point_grp,verbose=False,hex_to_cart=True)
+    else:
+        pt_sym_ops=get_sym_ops(point_grp,verbose=False)
+
+    if sym_op_lim:
+        pt_sym_ops=pt_sym_ops[sym_op_lim[0]:sym_op_lim[1]]
+      
+    # If we provided wanns
+    if wanns:
+        # Number of orbitals
+        n_orb=len(wanns)
+
+        # Normalize wannier functions
+        for iwann,wann in enumerate(wanns):
+            wanns[iwann]=normalize(wann,delr)
+    
+    # If using ylms directly
+    elif use_ylm >= 0:
+        n_orb=int(2*use_ylm+1)
+    
+    else:
+        raise('Must input wanns ore use_ylm')
+        
+
+    if verbose: print('Wannier functions read in and normalized.')
+        
+    # Write out info to file:
+    f=open(out_label+"reps.dat","w+")
+    f.write("Representations for the symmetry operations:\n")
+    f.write("\n")
+ 
+    for sym_op in pt_sym_ops:
+
+        # Write symmetry operation matrix
+        f.write("Rotation matrix\n")
+        for i in range(0,3):
+            f.write('{:.10f}   {:.10f}   {:.10f}\n'.format(sym_op[i,0],sym_op[i,1],sym_op[i,2]))
+
+        # Calculate orbital part of representation
+        if wanns:
+            rep=representation_fast(sym_op,wanns,delr,n_mesh,[],clean=clean)
+        else:    
+            rep=get_rep_ylms(use_ylm,n_mesh,rad_scale,sym_op,clean=clean)
             
         # Get the spin part
         spin_mat=get_spin_rep(sym_op)
@@ -899,7 +1016,151 @@ def remove_outside_radius(wann,n_mesh,com,radius=20.0):
     return wann
 #*************************************************************************************
 
-                    
+#*************************************************************************************
+def make_ylm_wanns(ll,n_mesh,basis,rad_scale):
+    '''
+    Make Ylm "wannier functions," i.e., just the Ylms on a cartesian mesh
+    
+    Inputs: 
+    ll : l of spherical harmonic
+    n_mesh : list of number of mesh points in x, y, and z
+    rad_scale : Scale of the radial part
+    basis : cubic or spherical
+    
+    Outputs:
+    wanns : Ylms on cartesian mesh
+    delr : Three elment list of grid spacing in x, y, z
+    '''
+    
+    size=1
+    x=np.linspace(-size, size, n_mesh[0])
+    y=np.linspace(-size, size, n_mesh[1])
+    z=np.linspace(-size, size, n_mesh[2])
+
+    x,y,z=np.meshgrid(x,y,z)
+
+    theta=np.arccos(z/np.sqrt(x**2+y**2+z**2))
+    phi=np.sign(y)*np.arccos(x/np.sqrt(x**2+y**2))
+    #phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
+    
+    wanns=[]
+    
+    # Spherical harmonics
+    if basis=='spherical':
+        for m in range(-ll,ll+1):
+            wanns.append(sph_harm(m, ll, phi, theta))
+    elif basis=='cubic':
+        for m in range(-ll,ll+1):
+            if m < 0:
+                wanns.append(np.sqrt(2)* ((-1)**m) * sph_harm(abs(m), ll, phi, theta).imag)
+            elif m > 0:
+                wanns.append(np.sqrt(2)* ((-1)**m) * sph_harm(abs(m), ll, phi, theta).real)
+            elif m==0:
+                wanns.append(sph_harm(m, ll, phi, theta).real)
+
+        # put in triqs ordering (opposite for f for some reason??)
+        if ll==3:
+            wanns.reverse()        
+        
+    else:
+        raise('Invalid basis.')
+
+    radial=np.exp(-rad_scale*np.sqrt(x**2+y**2+z**2))
+
+    delr=[2*size/n_mesh[0],2*size/n_mesh[1],2*size/n_mesh[2]]
+    for iwann,wann in enumerate(wanns):
+        wanns[iwann]=normalize(wann*radial,delr)
+        
+    return wanns,delr
+#*************************************************************************************
+
+#*************************************************************************************
+def get_rep_ylms(ll,n_mesh,rad_scale,sym_op,clean=True):
+    '''
+    Directly get the representations for real Ylms of given l and symmetry operation. NOTE: For now only works for non-hexagonal groups.
+    
+    Inputs: 
+    ll : l of spherical harmonic
+    n_mesh : list of number of mesh points in x, y, and z
+    rad_scale : Scale of the radial part
+    sym_op : 3x3 array of symmetry operation
+    clean : To help get pretty looking representation matricies, do some strategic rounding :).      
+    
+    Outputs:
+    rep : Representation matrix (2*ll+1) x (2*ll+1)
+    '''
+    
+    size=1
+    x=np.linspace(-size, size, n_mesh[0])
+    y=np.linspace(-size, size, n_mesh[1])
+    z=np.linspace(-size, size, n_mesh[2])
+    
+    x,y,z=np.meshgrid(x,y,z)
+
+    index=np.array([1,2,3])
+    index_rot=np.matmul(sym_op,index)
+    
+    signs=2*(index_rot >= 0) - 1
+    index_rot=np.abs(index_rot)-1
+    
+    grid=[x,y,z]
+    
+    theta=np.arccos(z/np.sqrt(x**2+y**2+z**2))
+    phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
+    
+    x_rot=signs[int(np.where(index_rot==0)[0])]*grid[int(np.where(index_rot==0)[0])]
+    y_rot=signs[int(np.where(index_rot==1)[0])]*grid[int(np.where(index_rot==1)[0])]
+    z_rot=signs[int(np.where(index_rot==2)[0])]*grid[int(np.where(index_rot==2)[0])]
+
+    theta_rot=np.arccos(z_rot/np.sqrt(x_rot**2+y_rot**2+z_rot**2))
+    phi_rot=np.sign(x_rot)*np.arccos(y_rot/np.sqrt(x_rot**2+y_rot**2))
+
+    wanns=[]
+    wanns_rot=[]
+    for m in range(-ll,ll+1):            
+        if m > 0:
+            wanns.append((1/np.sqrt(2)*(sph_harm(-np.abs(m), ll, phi, theta) + ((-1)**m) * sph_harm(np.abs(m), ll, phi, theta))).real)
+            wanns_rot.append((1/np.sqrt(2)*(sph_harm(-np.abs(m), ll, phi_rot, theta_rot) + ((-1)**m) * sph_harm(np.abs(m), ll, phi_rot, theta_rot))).real)
+        elif m == 0:
+            wanns.append(sph_harm(m, ll, phi, theta).real)
+            wanns_rot.append(sph_harm(m, ll, phi_rot, theta_rot).real)
+        elif m < 0:
+            wanns.append((1j/np.sqrt(2)*(sph_harm(-np.abs(m), ll, phi, theta) - ((-1)**m) * sph_harm(np.abs(m), ll, phi, theta))).real)
+            wanns_rot.append((1j/np.sqrt(2)*(sph_harm(-np.abs(m), ll, phi_rot, theta_rot) - ((-1)**m) * sph_harm(np.abs(m), ll, phi_rot, theta_rot))).real)
+
+    # f states are backwards in triqs!!
+    if ll==3:
+        wanns.reverse()
+        wanns_rot.reverse()
+    
+    # Multiply by radial function and normalize
+    radial=np.exp(-rad_scale*np.sqrt(x**2+y**2+z**2))
+    
+    delr=[2*size/n_mesh[0],2*size/n_mesh[1],2*size/n_mesh[2]]
+    for iwann,wann in enumerate(wanns):
+        wanns[iwann]=normalize(wann*radial,delr)
+        wanns_rot[iwann]=normalize(wanns_rot[iwann]*radial,delr)
+        
+    rep=np.zeros([2*ll+1,2*ll+1])
+    for i in range(2*ll+1):
+        for j in range(2*ll+1):
+            sym_rep=integrate.simpson(integrate.simpson(integrate.simpson(wanns[i]*wanns_rot[j],dx=delr[2]),dx=delr[1]),dx=delr[0])
+        
+            if clean:
+                clean_tol=1.0e-2
+                clean_vals=[0.0,1.0,-1.0,np.sqrt(3)/2,-np.sqrt(3)/2,0.5,-0.5,0.25,-0.25,np.sqrt(3/8),-np.sqrt(3/8),np.sqrt(5/8),-np.sqrt(5/8)]
+                for val in clean_vals:
+                    if np.abs(sym_rep-val) < clean_tol:
+                        sym_rep=val
+                        
+            rep[i,j]=sym_rep
+
+        
+    return rep
+#*************************************************************************************
+
+
+
 # END OF FUNCTIONS
 # ---------
 

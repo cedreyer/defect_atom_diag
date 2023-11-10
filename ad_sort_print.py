@@ -267,7 +267,7 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
 
 #*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,ml_order=[],verbose=True):
+def sort_states(spin_names,orb_names,ad,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,ml_order=[],verbose=True):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -275,7 +275,6 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     orb_names: List of orbitals
     spin_names: List of spins
     ad: Solution to the atomic problem
-    fops: Many-body operators 
     n_print: Number of states to print out
     prt_state: Whether to print to eigensys file
     target_mu: Only keep states with a given occupation
@@ -288,13 +287,15 @@ def sort_states(spin_names,orb_names,ad,fops,n_print,out_label,prt_mrchar=False,
     eigensys: List containing states, energies, and other info
     
     '''
+
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+
     # General spin operators. Should work with spinful or spinless as
     # long as first half spin up, second half spin down.
     Sz=spin_orbit_S_op(fops,proj='z')
     S2=spin_orbit_S2_op(fops)
-    
-    n_orb=len(orb_names)
-    n_spin=len(spin_names)
     
     den_mats=[]    
     n_eigenvec=0.0

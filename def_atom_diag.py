@@ -1096,7 +1096,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
 #*************************************************************************************
 # Setup the Hamiltonian
-def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
+def setup_H(spin_names,orb_names,comp_H,int_in,mu_in,verbose,mo_den=[]):
     '''
     Add terms to the Hamiltonian depending on the input file.
 
@@ -1115,6 +1115,8 @@ def setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=[]):
     dm: Density matrix
     N: Number operator
     '''
+
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
     
     # Setup the Hamiltonian
     H=Operator()
@@ -1178,7 +1180,7 @@ def read_at_diag(ad_file):
 
 #*************************************************************************************
 # Read in files for interaction
-def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,fops):
+def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names):
     '''
 
     Inputs:
@@ -1186,6 +1188,8 @@ def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,fops):
     Outputs:
 
     '''
+    
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
     n_orb=len(orb_names)
 
     # Test if we have different U for up and down
@@ -1195,7 +1199,12 @@ def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,fops):
 #    else:
 #        spin_pol=False
 #        uijkl_files=[uijkl_file]
-        
+
+    # Make sure tij is list type
+    if not isinstance(uijkl_file, list):
+        uijkl_file=[uijkl_file]
+
+
     uijkls=[]
     # Read in the uijkl files. Skip lines of vijkl. Ordering: upup, dndn, updn
     for uijkl_comp in uijkl_file:
@@ -1268,7 +1277,7 @@ def make_spin_pol_H_int(uijkls,spin_names,orb_names,fops):
 
 #*************************************************************************************
 # Read in files for spin polarized interaction
-def read_tij(wan_file,cmplx,spin_names,orb_names,fops):
+def read_tij(wan_file,cmplx,spin_names,orb_names):
     '''
 
     Inputs:
@@ -1277,6 +1286,7 @@ def read_tij(wan_file,cmplx,spin_names,orb_names,fops):
 
     '''
 
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
     n_orb=len(orb_names)
 
     # Make sure tij is list type
@@ -1577,14 +1587,14 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     
     # Read in the uijkl files. Skip lines of uijkl
     if uijkl_file:
-        int_in['uijkl']=read_Uijkl(uijkl_file,int_in['cmplx'],spin_names,orb_names,fops)
+        int_in['uijkl']=read_Uijkl(uijkl_file,int_in['cmplx'],spin_names,orb_names)
 
     # Read in the vijkl files. Skip lines of vijkl
     if vijkl_file:
-        int_in['vijkl']=read_Uijkl(vijkl_file,int_in['cmplx'],spin_names,orb_names,fops)
+        int_in['vijkl']=read_Uijkl(vijkl_file,int_in['cmplx'],spin_names,orb_names)
 
     if wan_file:
-        int_in['tij']=read_tij(wan_file,int_in['cmplx'],spin_names,orb_names,fops)
+        int_in['tij']=read_tij(wan_file,int_in['cmplx'],spin_names,orb_names)
 
     if dft_den_file:
         # Read in DFT densities
@@ -1611,7 +1621,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
         
         # Setup and solve the Hamiltonian
         start = time.time()
-        ad=setup_H(spin_names,orb_names,fops,comp_H,int_in,mu_in,verbose,mo_den=mo_den)
+        ad=setup_H(spin_names,orb_names,comp_H,int_in,mu_in,verbose,mo_den=mo_den)
         end = time.time()
         print("Time to setup and solve H:",end-start)
 
@@ -1622,7 +1632,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     # Get eigenstates sorted by energies
     if prt_eigensys:
         start = time.time()
-        eigensys,den_mats=sort_states(spin_names,orb_names,ad,fops,n_print,out_label,\
+        eigensys,den_mats=sort_states(spin_names,orb_names,ad,n_print,out_label,\
                                       prt_mrchar=prt_mrchar,prt_state=prt_state,prt_dm=prt_dm,\
                                       target_mu=mu_in['target_occ'],prt_ad=prt_ad,ml_order=ml_order)
         end = time.time()
