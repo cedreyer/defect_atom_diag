@@ -669,7 +669,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps_wann_in(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
+def print_reps_wann_in_YO(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
     '''
     Different version of print_reps that takes as input wanns instead of reading them in from file.
     
