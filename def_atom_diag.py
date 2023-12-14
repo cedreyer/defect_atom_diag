@@ -174,14 +174,14 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
     
     # Need to flip indicies of uijkl coming from VASP
-    if int_in['flip']:
-        uijkl=flip_u_index(n_orb,uijkl)
-        if int_in['vijkl']: vijkl = flip_u_index(n_orb, vijkl)
-        print('uijkl -> uikjl')
-    else:
+#    if int_in['flip']:
+#        uijkl=flip_u_index(n_orb,uijkl)
+#        if int_in['vijkl']: vijkl = flip_u_index(n_orb, vijkl)
+#        print('uijkl -> uikjl')
+#    else:
 #        uijkl=int_in['uijkl']
 #        if int_in['vijkl']: vijkl = int_in['vijkl']
-        print('uijkl -> uijkl')
+#        print('uijkl -> uijkl')
 
 
     # BASIS CHANGE TO "BAND"
@@ -539,9 +539,9 @@ def add_double_counting(H,spin_names,orb_names,fops,int_in,mo_den,verbose=False)
     
     n_orb=len(orb_names)
 
-    if int_in['flip']:
-        uijkl=flip_u_index(n_orb,uijkl)
-        if int_in['vijkl']: vijkl = flip_u_index(n_orb,vijkl)
+#    if int_in['flip']:
+#        uijkl=flip_u_index(n_orb,uijkl)
+#        if int_in['vijkl']: vijkl = flip_u_index(n_orb,vijkl)
 
     # BASIS CHANGE TO "BAND"
     if int_in['diag_basis']:
@@ -813,8 +813,8 @@ def add_cbcn_DFT_DC(H,spin_names,orb_names,fops,int_in,mo_den,verbose=True):
     if not int_in['diag_basis']:
         evals,evecs=np.linalg.eig(int_in['tij'])
 
-    if int_in['flip']:
-        uijkl=flip_u_index(n_orb,uijkl)
+#    if int_in['flip']:
+#        uijkl=flip_u_index(n_orb,uijkl)
 
     # Basis change to band
     tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='both',uijkls=uijkl)
@@ -1180,7 +1180,7 @@ def read_at_diag(ad_file):
 
 #*************************************************************************************
 # Read in files for interaction
-def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names):
+def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names,flip=True):
     '''
 
     Inputs:
@@ -1234,6 +1234,11 @@ def read_Uijkl(uijkl_file,cmplx,spin_names,orb_names):
 
         uijkls.append(uijkl)
 
+    if flip:
+        uijkls=flip_u_index(n_orb,uijkls)
+        print('uijkl -> uikjl')
+
+        
     return uijkls
 
 #*************************************************************************************
@@ -1338,7 +1343,7 @@ def read_tij(wan_file,cmplx,spin_names,orb_names):
 # Read in the input file
 def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_file='',dipol_file='',dft_den_file='',ad_file='',wf_files='',out_label='',mo_den=[],spin_names = ['up','dn'],orb_names = [0,1,2,3,4],lat_param=[0,0,0],ml_order=[], \
                 comp_H = {'Hkin':False,'Hint':False,'Hdc':False}, \
-                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':False,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
+                int_in = {'int_opt':0,'U_int':0,'J_int':0,'sym':'','uijkl':[],'vijkl':[],'tij':[],'flip':True,'diag_basis':False,'dc_x_wt':0.5,'dc_opt':0,'dc_typ':0, 'eps_eff':1,'cmplx':False}, \
                 mu_in = {'tune_occ':False,'mu_init':-8.5,'target_occ':5.0,'const_occ':False,'mu_step':0.5}, \
                 prt_occ = False,prt_state = False,prt_energy = False,prt_eigensys = False,prt_mbchar = False,prt_mrchar=False, prt_ad = False,prt_L=False,\
                 mb_char_spin = True,n_print = [0,42],verbose=False,prt_dm=False,prt_dipol=False,prt_mbwfs=False):
@@ -1587,7 +1592,7 @@ def run_at_diag(interactive,file_name='iad.in',uijkl_file='',vijkl_file='',wan_f
     
     # Read in the uijkl files. Skip lines of uijkl
     if uijkl_file:
-        int_in['uijkl']=read_Uijkl(uijkl_file,int_in['cmplx'],spin_names,orb_names)
+        int_in['uijkl']=read_Uijkl(uijkl_file,int_in['cmplx'],spin_names,orb_names,int_in['flip'])
 
     # Read in the vijkl files. Skip lines of vijkl
     if vijkl_file:
