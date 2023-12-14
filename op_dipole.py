@@ -573,7 +573,7 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
     r_file = open(repsfile,"r")
     lines=r_file.readlines()[2:]
     dij=[]
-
+    
     n_rep = 0
 
     for line in range(0,len(lines)):
@@ -936,12 +936,54 @@ def get_char_table(pg_symbol):
                                [2,1,-1,-2,0,0,-2,-1,1,2,0,0],\
                                [2,1,-1,-2,0,0,2,1,-1,-2,0,0]])
         
-        #ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
         ops_index=[[4],[9,15],[1,6],[7],[13,16,8],[0,11,5],[3],[18,20],[2,22],[10],[17,19,14],[21,23,12]]
-        #Not sure about: 5, 2_110; 8, 2_1-10; 12, m_110; 14, m_1-10
+
+    elif pg_symbol=='3m' or pg_symbol=='C3v':
+
+        sym_names = ['1','3','m_{1-10}']
+        sym_mult = [1,2,3]
+        irrep_labels = ['A1','A2','E']
+        irrep_deg = [1,1,2]
+        characters = np.array([[1,1,1],
+                              [1,1,-1],
+                              [2,-1,0]])
+        ops_index=[[3],[2,5],[0,1,4]]
+
+    elif pg_symbol=='mmm' or pg_symbol=='D2h':
+
+        sym_names = ['1','2z','2y','2x','-1','mz','my','mx']
+        sym_mult = [1,1,1,1,1,1,1,1]
+        irrep_labels = ['Ag','B1g','B2g','B3g','Au','B1u','B2u','B3u']
+        irrep_deg = [1,1,1,1,1,1,1,1]
+        characters = np.array([[1,1,1,1,1,1,1,1],
+                              [1,1,-1,-1,1,1,-1,-1],
+                               [1,-1,1,-1,1,-1,1,-1],
+                               [1,-1,-1,1,1,-1,-1,1],
+                               [1,1,1,1,-1,-1,-1,-1],
+                               [1,1,-1,-1,-1,-1,1,1],
+                               [1,-1,1,-1,-1,1,-1,1],
+                               [1,-1,-1,1,-1,1,1,-1]])
+        
+        ops_index=[[0],[4],[2],[1],[3],[5],[6],[7]]
+
+    elif pg_symbol=='-6m2' or pg_symbol=='D3h':
+
+        sym_names = ['1','m','3','-6','2_{120}','m_{100}']
+        sym_mult = [1,1,2,2,3,3]
+        irrep_labels = ["A'1","A'2","A''1","A''2","E'","E''"]
+        irrep_deg = [1,1,1,1,2,2]
+        characters = np.array([[1,1,1,1,1,1],
+                               [1,1,1,1,-1,-1],
+                               [1,-1,1,-1,1,-1],
+                               [1,-1,1,-1,-1,1],
+                               [2,2,-1,-1,0,0],
+                               [2,-2,-1,1,0,0]])
+        
+        ops_index=[[2],[4],[5,10],[0,7],[1,3,11],[6,8,9]]
+
         
     else:
-        raise('Point group not coded.')
+        raise ValueError('Point group not coded.')
 
 
     char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
