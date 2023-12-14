@@ -353,7 +353,7 @@ def interpolate_wann(wanns,delr,n_mesh_fine):
 
 #*************************************************************************************
 # Extract the rotation matricies from the pymatgen symmetry object
-def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False):
+def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False,hex_to_rhomb=False):
     '''
     Get point symmetry operations from pymatgen.
     
@@ -367,7 +367,7 @@ def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False):
     point_sym_ops: List of 2D 3x3 arrays for symmetry operations
     '''
 
-    if hex_to_cart:
+    if hex_to_cart or hex_to_rhomb:
         trans_latt=JonesFaithfulTransformation_CED.from_transformation_string("0.333333333(-a+b+c),0.333333333(2a+b+c),0.333333333(-a-2b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("2.449489742783178(a-b),4.242640687119286(a+b-2c),0.333333333(a+b+c);0,0,0")
         #trans_axis=JonesFaithfulTransformation.from_transformation_string("1.4142135623730951(a-b),2.449489742783178(a+b-2c),1.7320508075688772(a+b+c);0,0,0")
@@ -384,12 +384,15 @@ def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False):
     for sym in point.symmetry_ops:
 
         # Convert from hex to cartesian symmetry operations
-        if hex_to_cart:
+        if hex_to_cart or hex_to_rhomb:
             # Transform to rhomahedral setting
             rot_mat=trans_latt.transform_symmop(sym).rotation_matrix
-
-            # Transform 3-fold axis to around z axis. Can't figure out how to do this with JFT
-            rot_mat=np.matmul(np.matmul(np.linalg.inv(trans_axis_mat),rot_mat),trans_axis_mat)
+            #print(sym)
+            #print(np.round(rot_mat,4))
+            #raise
+            if hex_to_cart:
+                # Transform 3-fold axis to around z axis. Can't figure out how to do this with JFT
+                rot_mat=np.matmul(np.matmul(np.linalg.inv(trans_axis_mat),rot_mat),trans_axis_mat)
                 
         else:
             rot_mat=sym.rotation_matrix
@@ -456,12 +459,12 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
 
             if clean:
-                clean_tol=1.0e-2
+                clean_tol=5.0e-2
                 clean_vals=[0.0,1.0,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)]
                 for val in clean_vals:
-                    if sym_rep-val < clean_tol:
+                    if np.abs(sym_rep-val) < clean_tol:
                         sym_rep=val
-                    elif sym_rep+val < clean_tol:
+                    elif np.abs(sym_rep+val) < clean_tol:
                         sym_rep=-val
             
             rep[i,j]=sym_rep
