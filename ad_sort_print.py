@@ -15,8 +15,6 @@ import sympy as sp
 from op_dipole import * 
 from apply_sym_wan import *
 
-#PHY604 test
-
 # Tools for sorting and printing the output of atom diag
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
 # 09/10/19

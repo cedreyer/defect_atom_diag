@@ -15,6 +15,10 @@ import re
 
 from apply_sym_wan import *
 
+#sys.path.append('/Users/cdreyer/CCQ_SB_Research/NV/atom_diag/coulomb_symmetries/code')
+#import pointgroup as ptgp
+
+
 # Calculate dipole matrix element between states, and symmetry characters
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
 # 02/25/20
@@ -480,9 +484,6 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
                 
         op_on_vacuum += coeff1*op_vac
 
-
-    #TEST
-    #print(i_state,op_on_vacuum)
     
     # Test to make sure that the vacuum state is in the space
     if np.dot(ad.vacuum_state,ad.vacuum_state) > 1.e-10:
@@ -493,7 +494,6 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
         state_l[int(eigensys[i_mb_st][3])]=1
 
         state_r=act(op_on_vacuum,ad.vacuum_state,ad)
-        #char = np.dot(state_l,act(op_on_vacuum,ad.vacuum_state,ad))
         char = np.dot(state_l,state_r)
 
     # For constrained occupancy we need to do this without the vacuum state
@@ -541,7 +541,7 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
             state_r_subs[sub]=np.dot(ad.unitary_matrices[sub].conj().T,state_r_subs[sub])
         
         # Convert to full Hilbert space
-        state_r = np.concatenate(state_r_subs[:])#np.ndarray.flatten(np.array(state_r_subs))
+        state_r = np.concatenate(state_r_subs[:])
     
         char=np.dot(state_l_less,state_r)
 
@@ -549,7 +549,7 @@ def get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,Dij,cmplx):
  
 #*************************************************************************************
 # Get the matricies for symmetry representations
-def construct_dij(n_orb,n_spin,repsfile,flip=False):
+def construct_dij(n_orb,n_spin,repsfile):
     '''
     Read in the representation matricies, generated from the wannier functions
     
@@ -599,13 +599,14 @@ def construct_dij(n_orb,n_spin,repsfile,flip=False):
             rep_mat = np.reshape(np.array(rep_mat,dtype=float),(_n_orb,_n_orb))
             
             # Flip the orbital reps (since MB states fo from right to left)
-            if flip:
-                rep_mat_flip=np.zeros((_n_orb,_n_orb))
-                for ii in range(0,_n_orb):
-                    for jj in range(0,_n_orb):
-                        rep_mat_flip[ii][jj]=rep_mat[_n_orb-1-ii][_n_orb-1-jj]
-                rep_mat=rep_mat_flip
+          #  if flip:
+          #      rep_mat_flip=np.zeros((_n_orb,_n_orb))
+          #      for ii in range(0,_n_orb):
+          #          for jj in range(0,_n_orb):
+          #              rep_mat_flip[ii][jj]=rep_mat[_n_orb-1-ii][_n_orb-1-jj]
+          #      rep_mat=rep_mat_flip
 
+                
         # Spin part of the representation
         elif  "Representation (spin)" in lines[line]:
             spin_mat = [] 
@@ -654,7 +655,7 @@ def mb_degerate_character(fops,orb_names,spin_names,ad,eigensys,counts,out_label
         dij_orb_spin=construct_dij(n_orb,n_spin,repsfile,flip=True)
 
     elif not dij_orb_spin and not repsfile:
-        raise('You need to enter a reps filename or a dij list.' )
+        raise Exception('You need to enter a reps filename or a dij list.' )
         
 
     n_reps=len(dij_orb_spin)
@@ -743,8 +744,7 @@ def spin_orbit_S_op(fops,proj='z'):
     elif proj=='y':
         pauli_mat=0.5*np.array([[0,-1j],[1j,0]])
     else:
-        print('INCORRECT SPIN PROJECTION!')
-        raise
+        raise Exception('INCORRECT SPIN PROJECTION!')
     
     # Lets try and make this general
     up_fops=fops[0:int(n_fops/2)]
@@ -788,7 +788,7 @@ def spin_orbit_S2_op(fops):
 
 #*************************************************************************************
 # Makes an L operator. Only assumption is that first half are spin up,
-# second half are spin down
+# second half are spin down. NOTE: ALL OF THESE L OPERATORS ARE WRONG!!!
 def spin_orbit_L_op(fops,ml_order,proj='z'):
     '''
     Defines a L operator
@@ -807,8 +807,7 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
 
     ll=int((n_fops/2-1)/2)
     if ll < 0 or ll > 3:
-         print('INVALID NUMBER OF ORBITALS! l=',ll)
-         raise
+         raise Exception('INVALID NUMBER OF ORBITALS! l=',ll)
         
     # Generalized up and down spin
     up_fops=fops[0:int(n_fops/2)]
@@ -851,8 +850,8 @@ def spin_orbit_L_op(fops,ml_order,proj='z'):
         elif proj=='y':
             L_SO=-0.5*1j*(L_plus-L_minus)
         else:
-            print('INCORRECT SPIN PROJECTION!',proj)
-            raise
+            raise Exception('INCORRECT SPIN PROJECTION!',proj)
+            
 
 
     return L_SO 
@@ -994,9 +993,29 @@ def get_char_table(pg_symbol):
 #*************************************************************************************
 
 #*************************************************************************************
-# Get expectation values of an operator for all states. Should be used in many of the operations below!!!
+# Project MB states on irreps
 def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,repsfile=[],dij=[],spin=False,cmplx=False,out_label='',verbose=True):
     '''
+    Get the irrep projections of the many-body states. VERY slow :(
+
+    Inputs:
+    pg_symbol: Symbol of the point group
+    orb_names: Names of orbitals
+    spin_names: Names of spins
+    ad: Solution to atomic problem
+    eigensys: Eigenstates (see sort_states)
+    n_print: Range of states to consider
+    repsfile: Location of the *_reps.dat file (need to specify this or dij)
+    dij: Single-particle symmetry representations of the bais
+    spin: Spinfull reps?
+    cmplx: Will the weights be real or complex?
+    out_label: Label for output files
+    verbose: Write stuff to STOUT
+
+    Outputs:
+    char_table['irrep_labels']: List of the irreps, sometimes useful
+    states_proj: MB states projected onto irreps
+    
     '''
 
     # Info from character table
@@ -1072,6 +1091,7 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
 #*************************************************************************************
 
 #*************************************************************************************
+# Use weak proj operator to make symmetrizd tij
 def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
     '''
     Use the weak form of the projector: \hat{P}^{\Gamma_n}=\frac{l_n}{h}\sum_R \chi^{\Gamma_n}(R)\hat{P}^R 
@@ -1159,34 +1179,33 @@ def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
 #*************************************************************************************
 
 #*************************************************************************************
-def get_strong_projection_kk(pg_symbol,orb_names,spin_names,dij,verbose=True,hex_to_rhomb=False,hex_to_cart=False):
+# Strong projection operator
+def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
     '''
-    Use the strong projection operator to project the basis onto irreps
-    
+    Based on the orbital representations, project onto the irrep
+    partner functions using the "strong" projection operator:
+
+    \hat{P}_{kk}^{(\Gamma_n)}=\frac{l_n}{h}D^{(\Gamma_n)}(R)^*_{kk} \hat{P}_R
+
+    to project on partner functions of irrep.
+
     Inputs:
-    pg_symbol: Point group symbol (international)
-    spin_names: List of spins
-    orb_names: List of orbitals
-    dij: Single-particle reps of the basis
+    pg: PointGroup object
+    orb_names: Names of orbitals
+    spin_names: Names of spins
+    dij: Single-particle symmetry representations of the bais
     verbose: Write stuff out
-    hex_to_rhomb: Convert hexagonal setting to rhomahedral in order to compare symmetry operations with Coraline's code
-    hex_to_cart: Convert symmetry operations expressed in terms of hexagonal latice vectors to cartesian axes
     
     Outputs:
+    pg: Point group object
+    states_proj: List containing the projection of each function onto the irrep partner functions
     
-    pg: PointGroup object
-    states_proj: Contains the projection onto irreps for each state.
     
     '''
 
     # Get the point group information
-    pg=ptgp.PointGroup(name=pg_symbol)
+    #pg=ptgp.PointGroup(name=pg_symbol)
     rot_mats=[np.array(i,dtype=complex) for i in pg.rot_mat]
-    
-    # Need this because Coraline used rhombahedral setting for C3v
-    if hex_to_rhomb or hex_to_cart:
-        sym_ops=get_sym_ops(pg_symbol,hex_to_cart=hex_to_cart,hex_to_rhomb=hex_to_rhomb)
-
     
     n_orb=len(orb_names)
     n_spin=len(spin_names)
@@ -1197,6 +1216,7 @@ def get_strong_projection_kk(pg_symbol,orb_names,spin_names,dij,verbose=True,hex
     for istate in range(n_orb):
         
         proj_Gam_kk={}
+        #proj_Gam_kk_norm=[]
         
         for i_irrep,irrep in enumerate(pg.irreps):
             
@@ -1204,18 +1224,14 @@ def get_strong_projection_kk(pg_symbol,orb_names,spin_names,dij,verbose=True,hex
             for sym_el in range(h):
 
                 # Get the single-particle rep for this symmetry element
-                if hex_to_rhomb or hex_to_cart:
-                    sym=sym_ops[sym_el]
-                else:
-                    sym=dij[sym_el][0]
-
+                sym=dij[sym_el][0]
                 rep=dij[sym_el][1]
 
                 # Find this sym el:
                 try:
                     sym_ind=np.where([np.allclose(sym,i) for i in rot_mats])[0][0]
                 except:
-                    raise Exception('Cannot find symmetry operation!',sym)
+                    raise Exception('Cannot find symmetry operation!')
                     
                 D_R=np.array(pg.get_matrices(irrep=irrep, element=pg.elements[sym_ind])[0])
                 
@@ -1245,28 +1261,30 @@ def get_strong_projection_kk(pg_symbol,orb_names,spin_names,dij,verbose=True,hex
             print()
 
 
-    return pg,states_proj
+    return states_proj
 
 #*************************************************************************************
 
 #*************************************************************************************
-def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis):
+# Get unitary from projections
+def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True):
     '''
-    Get the unitary matrix that converts between the orbital and irrep basis 
-    
+    Get the unitary matrix that converts between the orbital basis
+    and the irrep basis, taking as input the results from
+    get_strong_projection_kk
+
     Inputs:
     n_orb: Number of orbitals
     pg: PointGroup object
-    states_proj: List of irrep projections of states from get_strong_projection_kk
-    irrep_basis: List of irreps for the basis, e.g., =['A1','E','E']
-    
+    states_proj: Orbital basis projected on irrep partner functions, from get_strong_projection_kk.
+    irrep_basis: List of irreps to have in the basis
+    verbose: Write stuff out
+
     Outputs:
-    unitary_trans: n_orb x n_orb unitary matrix
+    unitary_trans: n_orb x n_orb unitary matrix 
+    
 
     '''
-    
-    _sp=states_proj.copy()
-    
     unitary_trans=[]
     for ibasis,basis in enumerate(irrep_basis): # irrep
         
@@ -1278,16 +1296,60 @@ def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis):
             
             found=False
             # Search through states
-            for istate,state in enumerate(_sp):
-        
-                try:
-                    if np.linalg.norm(state[basis][k]) > 1e-10: # Some row has nonzero values
-                        unitary_trans.append(state[basis][k]/np.linalg.norm(state[basis][k]))
-                        found=True
-                        _sp[istate][basis]=np.delete(_sp[istate][basis],k,axis=0)
-                        break
-                except IndexError:
-                    pass
+            for istate,state in enumerate(states_proj):
+    
+                if np.linalg.norm(state[basis][k]) > 1e-10: # Some row has nonzero values
+                    unitary_trans.append(state[basis][k]/np.linalg.norm(state[basis][k]))
+                    found=True
+                    break
 
-    return np.vstack(unitary_trans).T
+    unitary_trans=np.vstack(unitary_trans).T
+    unitary_trans_sp=sympyize_unitary_matrix(unitary_trans)
+
+    if verbose:
+        print('Unitary matrix:')
+        print(np.round(unitary_trans,4))
+        print('Test of unitarity: ', np.linalg.norm(np.linalg.inv(unitary_trans)-unitary_trans.T))
+        
+        
+    return unitary_trans
+
 #*************************************************************************************
+# Convert to sympy
+def sympyize_unitary_matrix(unitary):
+    '''
+    Quick and dirty tool to convert from numpy to "exact" sympy for some common bases of f and d orbitals
+
+    Input:
+    unitary: numpy array for unitary transformation
+
+    Output:
+    sp_unitary: Sympy unitary
+    '''
+    
+
+    zero=sp.Integer(0)
+    one=sp.Integer(1)
+    two=sp.Integer(2)
+    three=sp.Integer(3)
+    four=sp.Integer(4)
+    five=sp.Integer(5)
+    eight=sp.Integer(8)
+    
+    sp_unitary=sp.Matrix(np.copy(unitary))
+    
+    tol=1.0e-2
+    vals=[[0.0,zero],[1.0,one],[np.sqrt(3)/2,sp.sqrt(three)/two],[0.5,one/two],[0.25,one/four],
+          [1/np.sqrt(2),one/sp.sqrt(two)],[np.sqrt(3/8),sp.sqrt(three/eight)],[np.sqrt(5/8),sp.sqrt(five/eight)],
+         [1j/np.sqrt(2),sp.I/sp.sqrt(two)]]
+    
+    for i in range(unitary.shape[0]):
+        for j in range(unitary.shape[0]):
+        
+            for val in vals:
+                if np.abs(unitary[i,j]-val[0]) < tol:
+                    sp_unitary[i,j]=val[1]
+                elif np.abs(unitary[i,j]+val[0]) < tol:
+                    sp_unitary[i,j]=-val[1]
+
+    return sp_unitary

@@ -672,7 +672,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps_wann_in_YO(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
+def print_reps_wann_in(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
     '''
     Different version of print_reps that takes as input wanns instead of reading them in from file.
     
@@ -737,7 +737,7 @@ def print_reps_wann_in_YO(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,
         n_orb=int(2*use_ylm+1)
     
     else:
-        raise('Must input wanns ore use_ylm')
+        raise Exception('Must input wanns ore use_ylm')
         
 
     if verbose: print('Wannier functions read in and normalized.')
@@ -1043,8 +1043,7 @@ def make_ylm_wanns(ll,n_mesh,basis,rad_scale):
     x,y,z=np.meshgrid(x,y,z)
 
     theta=np.arccos(z/np.sqrt(x**2+y**2+z**2))
-    phi=np.sign(y)*np.arccos(x/np.sqrt(x**2+y**2))
-    #phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
+    phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
     
     wanns=[]
     
