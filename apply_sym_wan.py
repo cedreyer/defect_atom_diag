@@ -9,9 +9,7 @@ import math
 import time
 
 # pymatgen symmetry stuff
-#import pymatgen as pmg
 from  pymatgen.symmetry.groups import PointGroup
-#from pymatgen.symmetry.settings import JonesFaithfulTransformation
 from settings_CED import JonesFaithfulTransformation_CED
 
 #*************************************************************************************

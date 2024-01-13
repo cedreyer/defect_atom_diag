@@ -15,10 +15,6 @@ import re
 
 from apply_sym_wan import *
 
-#sys.path.append('/Users/cdreyer/CCQ_SB_Research/NV/atom_diag/coulomb_symmetries/code')
-#import pointgroup as ptgp
-
-
 # Calculate dipole matrix element between states, and symmetry characters
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
 # 02/25/20
