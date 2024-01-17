@@ -4,6 +4,7 @@ import numpy as np
 import scipy.interpolate as inter
 import scipy.ndimage as sni
 from scipy.special import sph_harm
+from scipy import integrate
 import scipy as scp
 import math 
 import time
@@ -80,7 +81,7 @@ def load_cube_files(wf_file_names,convert_lat=False, path='./'):
         raise
 
 
-    # If not orthogonal, need to convert lattice. THIS IS NOT TESTED!
+    # If not orthogonal, need to convert lattice.
     if convert_lat:
             
         for iwann1,wann1 in enumerate(wanns):
@@ -477,9 +478,9 @@ def get_spin_rep(sym_op,verbose=False):
     From a given symmerty operation, automatically generate the
     representation for spin 1/2 under that symmetry
     operation. Algorithm is from J. Cano (SB/Flatiron). What we want
-    to calculate is exp(-i\nu\hat{n}\sigma/2) where \nu is the angle
-    of rotation and \sigma is the normalized sum of Pauli matrices
-    corresponding to the axis of the symmetry operation, \hat{n}. All
+    to calculate is exp(-i\\nu\\hat{n}\\sigma/2) where \\nu is the angle
+    of rotation and \\sigma is the normalized sum of Pauli matrices
+    corresponding to the axis of the symmetry operation, \\hat{n}. All
     of this information can be obtained from the diagonalization of
     the symmetry operation.
 
