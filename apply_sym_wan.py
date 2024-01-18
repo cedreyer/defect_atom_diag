@@ -1107,14 +1107,14 @@ def get_rep_ylms(ll,n_mesh,rad_scale,sym_op,clean=True):
     grid=[x,y,z]
     
     theta=np.arccos(z/np.sqrt(x**2+y**2+z**2))
-    phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
+    phi=np.sign(y)*np.arccos(x/np.sqrt(x**2+y**2))
     
     x_rot=signs[int(np.where(index_rot==0)[0])]*grid[int(np.where(index_rot==0)[0])]
     y_rot=signs[int(np.where(index_rot==1)[0])]*grid[int(np.where(index_rot==1)[0])]
     z_rot=signs[int(np.where(index_rot==2)[0])]*grid[int(np.where(index_rot==2)[0])]
 
     theta_rot=np.arccos(z_rot/np.sqrt(x_rot**2+y_rot**2+z_rot**2))
-    phi_rot=np.sign(x_rot)*np.arccos(y_rot/np.sqrt(x_rot**2+y_rot**2))
+    phi_rot=np.sign(y_rot)*np.arccos(x_rot/np.sqrt(x_rot**2+y_rot**2))
 
     wanns=[]
     wanns_rot=[]

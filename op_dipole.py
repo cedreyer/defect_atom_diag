@@ -1179,11 +1179,13 @@ def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
 def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
     '''
     Based on the orbital representations, project onto the irrep
-    partner functions using the "strong" projection operator:
+    partner functions using the diagonal version of the "strong" projection operator:
 
     \hat{P}_{kk}^{(\Gamma_n)}=\frac{l_n}{h}D^{(\Gamma_n)}(R)^*_{kk} \hat{P}_R
 
     to project on partner functions of irrep.
+
+    NOTE: THIS WILL NOT PRODUCE CORRECT SIGNS BETWEEEN DEGENERATE STATES!
 
     Inputs:
     pg: PointGroup object
@@ -1242,7 +1244,7 @@ def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
                    
                 
             # Store for irrep
-            proj_Gam_kk_norm=[np.linalg.norm(proj_kk[k,:]) for k in range(pg.dims_irreps[i_irrep])]
+            #proj_Gam_kk_norm=[np.linalg.norm(proj_kk[k,:]) for k in range(pg.dims_irreps[i_irrep])]
             proj_Gam_kk[str(irrep)]=proj_kk#proj_Gam_kk_norm               
         
         states_proj.append(proj_Gam_kk)
@@ -1263,11 +1265,13 @@ def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
 
 #*************************************************************************************
 # Get unitary from projections
-def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True):
+def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_format='numpy'):
     '''
     Get the unitary matrix that converts between the orbital basis
     and the irrep basis, taking as input the results from
     get_strong_projection_kk
+
+    NOTE: THIS WILL NOT PRODUCE CORRECT SIGNS BETWEEEN DEGENERATE STATES!
 
     Inputs:
     n_orb: Number of orbitals
@@ -1300,7 +1304,9 @@ def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True):
                     break
 
     unitary_trans=np.vstack(unitary_trans).T
-    unitary_trans_sp=sympyize_unitary_matrix(unitary_trans)
+
+    if mat_format=='sympy':
+        unitary_trans=sympyize_unitary_matrix(unitary_trans)
 
     if verbose:
         print('Unitary matrix:')
@@ -1309,6 +1315,145 @@ def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True):
         
         
     return unitary_trans
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Strong projection operator
+def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True):
+    '''
+    Based on the orbital representations, project onto the irrep
+    partner functions using the "strong" projection operator:
+
+    \hat{P}_{kl}^{(\Gamma_n)}=\frac{l_n}{h}D^{(\Gamma_n)}(R)^*_{kl} \hat{P}_R
+
+    to project on partner functions of irrep. Off-diagonal elements
+    are needed to get correct relative signs for degenerate states.
+
+    Inputs:
+    pg: PointGroup object
+    orb_names: Names of orbitals
+    spin_names: Names of spins
+    dij: Single-particle symmetry representations of the bais
+    verbose: Write stuff out
+    
+    Outputs:
+    pg: Point group object
+    states_proj: List containing the projection of each function onto the irrep partner functions
+
+    '''
+
+    # Get the point group information
+    #pg=ptgp.PointGroup(name=pg_symbol)
+    rot_mats=[np.array(i,dtype=complex) for i in pg.rot_mat]
+    
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    h=len(dij)
+    
+    # loop over Wannier states
+    states_proj=[]
+    for istate in range(n_orb):
+        
+        proj_Gam_kl={}
+        
+        for i_irrep,irrep in enumerate(pg.irreps):
+            
+            proj_kl=np.zeros((int(pg.dims_irreps[i_irrep]),int(pg.dims_irreps[i_irrep]),n_orb),dtype=complex)
+            for sym_el in range(h):
+
+                # Get the single-particle rep for this symmetry element
+                sym=dij[sym_el][0]
+                rep=dij[sym_el][1]
+
+                # Find this sym el:
+                try:
+                    sym_ind=np.where([np.allclose(sym,i) for i in rot_mats])[0][0]
+                except:
+                    raise Exception('Cannot find symmetry operation!')
+                    
+                D_R=np.conjugate(np.array(pg.get_matrices(irrep=irrep, element=pg.elements[sym_ind])[0],dtype=complex)).T 
+     
+                for ik in range(D_R.shape[0]):
+                    for il in range(D_R.shape[1]):
+                        proj_kl[ik,il,:]+=np.array((pg.dims_irreps[i_irrep]/h)*D_R[ik,il]*rep[:,istate])
+                                    
+            # Store for irrep, here we assume that D is real!
+            proj_Gam_kl[str(irrep)]=proj_kl.real               
+        
+        states_proj.append(proj_Gam_kl)
+        
+    if verbose:
+        for istate,state in enumerate(states_proj):
+            print('State: ',istate)
+            for key,val in state.items():
+                if np.linalg.norm(np.array(val)) > 1e-10:
+                    print(key,np.round(val,4))
+
+            print()
+
+
+    return states_proj
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Get unitary from projections
+def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_format='numpy'):
+    '''
+    Get the unitary matrix that converts between the orbital basis and
+    the irrep basis, taking as input the results from
+    get_strong_projection_kl. Off-diagonal elements are needed to get
+    correct relative signs for degenerate states.
+
+    Inputs:
+    n_orb: Number of orbitals
+    pg: PointGroup object
+    states_proj: Orbital basis projected on irrep partner functions, from get_strong_projection_kk.
+    irrep_basis: List of irreps to have in the basis
+    verbose: Write stuff out
+
+    Outputs:
+    unitary_trans: n_orb x n_orb unitary matrix
+
+    '''
+    
+    unitary_trans=[]
+    for ibasis,basis in enumerate(irrep_basis): # irrep
+        
+        # Get the degeneracy
+        i_irrep=pg.irrep_names.index(basis)
+        dim_irrep=pg.dims_irreps[i_irrep]
+
+        found=False
+        for istate,state in enumerate(states_proj):
+            if np.linalg.norm(state[basis]) > 1e-10:
+                uni_lines=state[basis].reshape(dim_irrep**2,n_orb)
+                
+                # Remove zeros and normalize
+                uni_lines=uni_lines[~np.all(np.abs(uni_lines) < 1e-10, axis=1)]
+                row_sums = np.sum(np.abs(uni_lines)**2,axis=-1)**(1./2)
+                uni_lines = uni_lines / row_sums[:, np.newaxis]
+                
+                unitary_trans.append(uni_lines)
+                found=True
+                break
+
+        if found: continue
+
+    unitary_trans=np.vstack(unitary_trans).T
+    
+    if mat_format=='sympy':
+        unitary_trans=sympyize_unitary_matrix(unitary_trans)
+
+    if verbose:
+        print('Unitary matrix:')
+        print(np.round(unitary_trans,4))
+        print('Test of unitarity: ', np.linalg.norm(np.linalg.inv(unitary_trans)-unitary_trans.T))
+        
+        
+    return unitary_trans
+#*************************************************************************************
 
 #*************************************************************************************
 # Convert to sympy
