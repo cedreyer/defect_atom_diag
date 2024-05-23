@@ -620,13 +620,12 @@ def construct_dij(n_orb,n_spin,repsfile):
  
 #*************************************************************************************
 # Calculates and sums the characters for orbitals in a degenerate group 
-def mb_degerate_character(fops,orb_names,spin_names,ad,eigensys,counts,out_label,cmplx,dij_orb_spin=[],repsfile=[],state_limit=41,verbose=True,spin=True):
+def mb_degerate_character(orb_names,spin_names,ad,eigensys,counts,cmplx,dij_orb_spin=[],repsfile=[],state_limit=41,verbose=True,spin=True,out_label=''):
     '''
     Sum the characters for a degenerate manifold of many-body states.
 
     Input:
     dij_orb_spin: Symmetry representations
-    fops: Many-body operators
     orb_names: List of orbitals
     spin_names: List of spins
     ad: Solution to atomic problem
@@ -645,7 +644,8 @@ def mb_degerate_character(fops,orb_names,spin_names,ad,eigensys,counts,out_label
     # Extract the rotation matricies and reps for orbitals
     n_orb=len(orb_names)
     n_spin=len(spin_names)
-
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
+    
     # dij
     if not dij_orb_spin and repsfile:
         dij_orb_spin=construct_dij(n_orb,n_spin,repsfile,flip=True)
@@ -889,9 +889,9 @@ def get_char_table(pg_symbol):
     char_table: List with sym names, multiplicities, irrep labels, characters, and one symmetry operation per family
 
     '''
-
+    
     ops=get_sym_ops(pg_symbol)
-        
+    spin=False
     if pg_symbol=='m-3m' or pg_symbol=='Oh':
         
         sym_names = ['1','4','2_{100}','3','2_{110}','-1','-4','m_{100}','-3','m_{110}']
@@ -911,7 +911,31 @@ def get_char_table(pg_symbol):
 
         #ops_one_each=[ops[9],ops[42],ops[28],ops[1],ops[0],ops[13],ops[47],ops[6],ops[16],ops[21]]
         ops_index=[[9],[3,12,32,34,42,46],[20,25,28],[1,11,14,17,22,35,36,43],[0,15,24,27,29,40],[13],[5,7,19,23,38,47],[6,8,31],[2,16,18,33,37,39,41,45],[4,10,21,26,30,44]]
-                
+
+        # With spin
+        spin=True
+        spin_irrep_labels=['E1/2g','E5/2g','F3/2g','E1/2u','E5/2u','F3/2u']
+        spin_chars=np.array([[2,0,1,np.sqrt(2),0,2,0,1,np.sqrt(2),0],
+                             [2,0,1,-np.sqrt(2),0,2,0,1,-np.sqrt(2),0],
+                             [4,0,-1,0,0,4,0,-1,0,0],
+                             [2,0,1,np.sqrt(2),0,-2,0,-1,-np.sqrt(2),0],
+                             [2,0,1,-np.sqrt(2),0,-2,0,-1,np.sqrt(2),0],
+                             [4,0,-1,0,0,-4,0,1,0,0]])
+        
+    elif pg_symbol=='-43m' or pg_symbol=='Td':
+        
+        sym_names = ['1','3','2_{100}','-4','m_{110}']
+        sym_mult = [1,8,3,6,6]
+        irrep_labels = ['A1','A2','E','T1','T2']
+        irrep_deg = [1,1,2,3,3]
+        characters = np.array([[1,1,1,1,1],
+                               [1,1,1,-1,-1],
+                               [2,-1,2,0,0],
+                               [3,0,-1,1,-1],
+                               [3,0,-1,-1,1]])
+
+        ops_index=[[1],[3,7,14,15,16,18,19,22],[0,10,11],[2,5,13,17,20,21],[4,6,8,9,12,23]]
+        
     elif pg_symbol=='6/mmm' or pg_symbol=='D6h':
         
         sym_names = ['1','6','3','2_z','2_{120}','2_{100}','-1','-6','-3','m_z','m_{120}','m_{100}']
@@ -933,6 +957,17 @@ def get_char_table(pg_symbol):
         
         ops_index=[[4],[9,15],[1,6],[7],[13,16,8],[0,11,5],[3],[18,20],[2,22],[10],[17,19,14],[21,23,12]]
 
+        # With spin:
+        spin=True
+        spin_irrep_labels=['E1/2g','E3/2g','E5/2g','E1/2u','E3/2u','E5/2u']
+        spin_chars=np.array([[2,np.sqrt(3),1,0,0,0,2,np.sqrt(3),1,0,0,0],
+                             [2,0,-2,0,0,0,2,0,-2,0,0,0],
+                             [2,-np.sqrt(3),1,0,0,0,2,-np.sqrt(3),1,0,0,0],
+                             [2,np.sqrt(3),1,0,0,0,-2,-np.sqrt(3),-1,0,0,0],
+                             [2,0,-2,0,0,0,-2,0,2,0,0,0],
+                             [2,-np.sqrt(3),1,0,0,0,-2,np.sqrt(3),-1,0,0,0]])
+
+        
     elif pg_symbol=='3m' or pg_symbol=='C3v':
 
         sym_names = ['1','3','m_{1-10}']
@@ -980,8 +1015,11 @@ def get_char_table(pg_symbol):
     else:
         raise ValueError('Point group not coded.')
 
-
-    char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
+    if spin:
+        char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
+                    'characters':characters,'ops_index':ops_index,'all_ops':ops,'spin_irrep_labels':spin_irrep_labels,'spin_chars':spin_chars}
+    else:
+        char_table={'sym_names':sym_names,'sym_mult':sym_mult,'irrep_labels':irrep_labels,'irrep_deg':irrep_deg, \
                 'characters':characters,'ops_index':ops_index,'all_ops':ops}
 
     return char_table
@@ -1014,21 +1052,41 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
     
     '''
 
-    # Info from character table
-    char_table=get_char_table(pg_symbol)
-    characters=char_table['characters']
-    h=np.sum(np.array(char_table['sym_mult']))
-    n_ops=len(char_table['sym_names'])
-
-    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
-    n_orb=len(orb_names)
-    n_spin=len(spin_names)
-
     # Single particle representations
     if not dij and repsfile:
         dij=construct_dij(n_orb,n_spin,repsfile,flip=False)
     elif not dij and not repsfile:
         raise Exception('Need to pass a dij list or filename for reps.')
+    
+    # Info from character table
+    char_table=get_char_table(pg_symbol)
+    
+    if spin:
+
+        # Construct double group
+        characters=np.concatenate((np.concatenate((char_table['characters'],char_table['characters']),axis=1),np.concatenate((char_table['spin_chars'],-char_table['spin_chars']),axis=1)),axis=0) 
+        irrep_labels=char_table['irrep_labels']+char_table['spin_irrep_labels']
+        
+        h=2*np.sum(np.array(char_table['sym_mult']))
+        n_ops=2*len(char_table['sym_names'])
+
+        dij_spin=dij.copy()
+        for d in dij:
+            dij_spin.append([d[0],d[1],-d[2]]) 
+
+        dij=dij_spin
+        
+    else:
+        characters=char_table['characters']
+        irrep_labels=char_table['irrep_labels']
+    
+        h=np.sum(np.array(char_table['sym_mult']))
+        n_ops=len(char_table['sym_names'])
+    
+    
+    fops = [(sn,on) for sn, on in product(spin_names,orb_names)]
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
         
     # Loop over state
     states_proj=[]
@@ -1036,7 +1094,7 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
 
         # Project onto irreps
         proj_irreps=[]
-        for irrep in range(n_ops):
+        for irrep in range(len(irrep_labels)):
             proj=0
             for sym_el in range(h):
 
@@ -1047,6 +1105,10 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
                 for iop,op in enumerate(char_table['ops_index']):
                     if sym_el in op:
                         char_index=iop
+
+                        # For spin, may want to go to \overline{E} sector
+                        if spin and sym_el >= h/2:
+                            char_index+=int(h/2)
                         break
                 
                 # Whether or not to include spin
@@ -1055,10 +1117,13 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
                 else:
                     no_spin=np.array([[1,0],[0,1]])
                     dij_kron=np.kron(no_spin,np.flip(rep[1]))
-                
-                proj_R=(char_table['irrep_deg'][irrep]/h)*characters[irrep,char_index]*get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[1]
+
+                proj_R=(characters[irrep,0]/h)*characters[irrep,char_index]*get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[1]
                 proj+= proj_R
 
+                #if irrep==0 and i_mb_st==0 and (sym_el==1 or sym_el==25):
+                #    print(sym_el, get_char(i_mb_st,fops,orb_names,spin_names,ad,eigensys,dij_kron,cmplx)[1])
+                
             proj_irreps.append(proj)
         states_proj.append(proj_irreps)
 
@@ -1066,23 +1131,35 @@ def get_irrep_projection(pg_symbol,orb_names,spin_names,ad,eigensys,n_print,reps
     if out_label and not out_label.endswith('_'): out_label+='_'
     filename=out_label+'irrep_proj.dat'
 
+    labeled_states=[]
     with open(filename, 'w') as proj_file:
         proj_file.write('# state number   irrep name   weight \n')
         
         for istate,state in enumerate(states_proj):
+
+            nonzero_proj=[]
             for iproj,proj_irreps in enumerate(state):
                 norm=np.linalg.norm(proj_irreps)
 
                 if norm > 1e-5:
-                    proj_file.write('{:d}  {}  {:6.4f} \n'.format(istate,char_table['irrep_labels'][iproj],np.linalg.norm(proj_irreps)))
+                    proj_file.write('{:d}  {}  {:6.4f} \n'.format(istate,irrep_labels[iproj],np.linalg.norm(proj_irreps)))
 
+                    # Here we just pick the largest projection
+                    if not nonzero_proj:
+                        nonzero_proj=[irrep_labels[iproj],np.linalg.norm(proj_irreps)]
+                    elif nonzero_proj[1] < np.linalg.norm(proj_irreps):
+                        nonzero_proj=[irrep_labels[iproj],np.linalg.norm(proj_irreps)]
+                    
                     if verbose:
-                        print('{:d}  {}  {:6.4f} '.format(istate,char_table['irrep_labels'][iproj],np.linalg.norm(proj_irreps)))
-                
+                        print('{:d}  {}  {:6.4f} '.format(istate,irrep_labels[iproj],np.linalg.norm(proj_irreps)))
+
+            
+            labeled_states.append([istate,nonzero_proj[:]])
+
             proj_file.write('\n')
             if verbose: print('')
 
-    return char_table['irrep_labels'],states_proj
+    return irrep_labels,states_proj,labeled_states
 
 #*************************************************************************************
 
@@ -1320,7 +1397,7 @@ def get_irrep_unitary_kk(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_forma
 
 #*************************************************************************************
 # Strong projection operator
-def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True):
+def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True,cart_to_hex=False,rhomb_to_hex=False,pg_symbol=''):
     '''
     Based on the orbital representations, project onto the irrep
     partner functions using the "strong" projection operator:
@@ -1363,13 +1440,19 @@ def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True):
             for sym_el in range(h):
 
                 # Get the single-particle rep for this symmetry element
-                sym=dij[sym_el][0]
                 rep=dij[sym_el][1]
 
+                if cart_to_hex or rhomb_to_hex:
+                    sym=get_sym_ops(pg_symbol,hex_to_cart=cart_to_hex,hex_to_rhomb=rhomb_to_hex)[sym_el]
+                else:
+                    sym=dij[sym_el][0]
+
+                
                 # Find this sym el:
                 try:
                     sym_ind=np.where([np.allclose(sym,i) for i in rot_mats])[0][0]
                 except:
+                    print(rot_mats)
                     raise Exception('Cannot find symmetry operation!')
                     
                 D_R=np.conjugate(np.array(pg.get_matrices(irrep=irrep, element=pg.elements[sym_ind])[0],dtype=complex)).T 
@@ -1399,7 +1482,7 @@ def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True):
 
 #*************************************************************************************
 # Get unitary from projections
-def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_format='numpy'):
+def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_format='numpy',tol=0.1,clean=True):
     '''
     Get the unitary matrix that converts between the orbital basis and
     the irrep basis, taking as input the results from
@@ -1419,6 +1502,7 @@ def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_forma
     '''
     
     unitary_trans=[]
+    state_used=[]
     for ibasis,basis in enumerate(irrep_basis): # irrep
         
         # Get the degeneracy
@@ -1427,21 +1511,35 @@ def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_forma
 
         found=False
         for istate,state in enumerate(states_proj):
-            if np.linalg.norm(state[basis]) > 1e-10:
+            if np.linalg.norm(state[basis]) > tol and not (istate in state_used):
                 uni_lines=state[basis].reshape(dim_irrep**2,n_orb)
                 
                 # Remove zeros and normalize
-                uni_lines=uni_lines[~np.all(np.abs(uni_lines) < 1e-10, axis=1)]
+                uni_lines=uni_lines[~np.all(np.abs(uni_lines) < tol, axis=1)]
                 row_sums = np.sum(np.abs(uni_lines)**2,axis=-1)**(1./2)
                 uni_lines = uni_lines / row_sums[:, np.newaxis]
                 
                 unitary_trans.append(uni_lines)
                 found=True
+                state_used.append(istate) # Don't repeat states for repeated irreps
                 break
 
         if found: continue
 
     unitary_trans=np.vstack(unitary_trans).T
+
+    assert unitary_trans.shape == (n_orb,n_orb), 'Error: Unitary has wrong size. Try changing tol.\n '+str(unitary_trans)
+    
+    if clean:
+        clean_tol=tol
+        clean_vals=[0.0,1.0]#,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)]
+        for i in range(n_orb):
+            for j in range(n_orb):         
+                for val in clean_vals:
+                    if np.abs(unitary_trans[i,j]-val) < clean_tol:
+                        unitary_trans[i,j]=val
+                    elif np.abs(unitary_trans[i,j]+val) < clean_tol:
+                        unitary_trans[i,j]=-val
     
     if mat_format=='sympy':
         unitary_trans=sympyize_unitary_matrix(unitary_trans)
@@ -1449,8 +1547,12 @@ def get_irrep_unitary_kl(n_orb,pg,states_proj,irrep_basis,verbose=True,mat_forma
     if verbose:
         print('Unitary matrix:')
         print(np.round(unitary_trans,4))
-        print('Test of unitarity: ', np.linalg.norm(np.linalg.inv(unitary_trans)-unitary_trans.T))
-        
+
+        try:
+            print('Test of unitarity: ', np.linalg.norm(np.linalg.inv(unitary_trans)-unitary_trans.T))
+        except:
+            print('Error: Cannot test unitarity.')
+            
         
     return unitary_trans
 #*************************************************************************************

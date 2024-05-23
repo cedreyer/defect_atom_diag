@@ -75,7 +75,7 @@ def print_occ_ang_mom(orb_names,spin_names,fops,ad,ml_order,prt_L):
 
 #*************************************************************************************
 # Get energies, sort and find degeneracies
-def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
+def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,verbose=True):
     '''
     Sort the energies and detect degeneracies
  
@@ -83,7 +83,7 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
     ad: Solution to the atomic problem
     eigensys: List of states and energies
     prec: Precision to define degeneracies
-    out: Whether to print to terminal
+    verbose: Whether to print to terminal
     out_label: To label output file
 
     Outputs:
@@ -102,7 +102,7 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,out=True):
     else:
         n_print=len(unique_energies)
         
-    if out:
+    if verbose:
         f_eng= open(out_label+"energy_deg.dat","w+")
 
         for u in range(n_print):
@@ -342,7 +342,7 @@ def sort_states(spin_names,orb_names,ad,n_print,out_label,prt_mrchar=False,prt_s
         
     # Make sure we are not trying to print more states than there are
     if n_print[1]>=len(eigensys):
-        n_print[1]=len(eigensys)-1    
+        n_print[1]=len(eigensys)-1    # THIS OVERWRITES n_print, NEED TO FIX!
 
     # Slice eigensys to just states of interest 
     eigensys=eigensys[n_print[0]:n_print[1]+1]

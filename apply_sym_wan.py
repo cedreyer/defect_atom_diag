@@ -351,6 +351,52 @@ def interpolate_wann(wanns,delr,n_mesh_fine):
 #*************************************************************************************
 
 #*************************************************************************************
+# Calculate overlaps between sets of Wannier functions
+def wann_overlap_unitary(wanns_1, delr_1, n_mesh_1, wanns_2, delr_2, n_mesh_2, round_overlap=0,verbose=True):
+    '''
+    For systems with similar wannier functions with potentially different ordering, 
+    use overlaps of functions to determine the unitary between them.
+    
+    Input:                                                   
+    wanns_1, wanns_2: List of wannier function on 3D grid in real space 
+    delr_1, delr_2: 1D 3 element array containing mesh spacing         
+    n_mesh_1, n_mesh_2: 1D 3 element array containing number of mesh points
+    round_overlap: Number of decimal places
+    verbose: Write stuff out
+                                                             
+    Output:                                                  
+    overlap: Unitary matrix of overlaps       
+
+    '''
+    
+    _wanns_1=wanns_1.copy()
+    _wanns_2=wanns_2.copy()
+    
+    # Interpolate onto mesh of wanns_2 
+    _wanns_1_inter=interpolate_wann(_wanns_1,delr_1,n_mesh_2)
+
+    overlap=np.zeros((len(_wanns_1_inter),len(_wanns_2)))
+    for iwann1,wann1 in enumerate(_wanns_1_inter):
+        for iwann2,wann2 in enumerate(_wanns_2):
+
+            # Make sure they are normalized
+            wann1=normalize(wann1,delr_2)
+            wann2=normalize(wann2,delr_2)
+
+            wann_x_wann = np.multiply(wann1,wann2)
+
+            overlap[iwann1,iwann2]=np.trapz(np.trapz(np.trapz(wann_x_wann,dx=delr_2[0], axis=0),dx=delr_2[1], axis=0),dx=delr_2[2], axis=0)
+    
+    overlap=np.round(overlap,round_overlap)
+    
+    if verbose:
+        print(overlap)
+        print('Unitary test:',np.linalg.norm(overlap.T - np.linalg.inv(overlap)))
+    
+    return overlap
+#*************************************************************************************
+
+#*************************************************************************************
 # Extract the rotation matricies from the pymatgen symmetry object
 def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False,hex_to_rhomb=False):
     '''
@@ -408,7 +454,7 @@ def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False,hex_to_rhomb=False):
 
 #*************************************************************************************
 # For a given symmetry operation, calculate the representation. For now specialize to cube format
-def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',clean=True):
+def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',clean=True,remove_rad=-1):
     '''Calculate the single-particle symmetry representation matrix for
     symmerty operation given by sym_op. For now specialize to cube format
 
@@ -446,6 +492,11 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
             # Get offset                                                 
             offset=-(center-center.dot(sym_op)).dot(np.linalg.inv(sym_op))
+
+            # Remove outside radius. Seems to help with xsf files.
+            if remove_rad > 0:
+                wann_j=normalize(remove_outside_radius(wann_j,n_mesh,coms[j],radius=remove_rad),delr)
+                wann_i=normalize(remove_outside_radius(wann_i,n_mesh,coms[i],radius=remove_rad),delr)
             
             # Apply symmetry element: this is what takes time
             wann_j_sym=sni.affine_transform(wann_j,sym_op,offset=offset)
@@ -474,6 +525,104 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 #*************************************************************************************
 # Generate the symmetry representations of spin 1/2
 def get_spin_rep(sym_op,verbose=False):
+    '''
+    From a given symmerty operation, automatically generate the
+    representation for spin 1/2 under that symmetry
+    operation. Algorithm is from J. Cano (SB/Flatiron). What we want
+    to calculate is exp(-i\\nu\\hat{n}\\sigma/2) where \\nu is the angle
+    of rotation and \\sigma is the normalized sum of Pauli matrices
+    corresponding to the axis of the symmetry operation, \\hat{n}. All
+    of this information can be obtained from the diagonalization of
+    the symmetry operation.
+
+    Inputs:
+    sym_op: 2D, 3x3 array for the symmetry operation
+    verbose: What to write out to the terminal
+
+    Outputs:
+    spin_d: 2D 2x2 matrix for spin 1/2 rep
+
+    '''
+
+
+    # Pauli matricies:
+    sigma_x = np.array([[0, 1],[1, 0]])
+    sigma_y = np.array([[0, -1j],[1j, 0]])
+    sigma_z = np.array([[1, 0],[0, -1]])
+    sig=np.array([sigma_x,sigma_y,sigma_z])
+    
+    if verbose:
+        for i in range(0,3):
+            print('%3.1f %3.1f %3.1f' % (sym_op[i,0],sym_op[i,1],sym_op[i,2]))
+
+    # Diagonalize sym_op
+    evals,evecs=np.linalg.eig(sym_op)
+    det=np.linalg.det(sym_op)
+        
+    # Now lets get n_hat and the angle:
+    n_hat=0.0
+    ang=[]
+    ang_evec=[]
+        
+    # Proper rotations should have determinant of 1
+    if det > 0:
+        # Axis is the eigenvector with eigenvalue 1
+        for eig in range(0,3):
+            if abs(evals[eig]-1.0) < 1.0e-10:
+                n_hat=evecs.transpose()[eig]
+            else:
+                # Angle is obtained from non-unity eigenvalue
+                ang.append(np.angle(evals[eig]))
+                ang_evec.append(evecs.transpose()[eig])
+                    
+    # If det < 0 either mirror or improper rotation
+    else:
+        # Axis is the eigenvector with eigenvalue -1
+        for eig in range(0,3):
+            if abs(evals[eig]+1.0) < 1.0e-10:
+                n_hat=evecs.transpose()[eig]
+            else:
+                # Angle is obtained from non -1 eigenvalue (note the
+                # minus sign)
+                ang.append(np.angle(-evals[eig]))
+                ang_evec.append(evecs.transpose()[eig])
+
+    # For identity, angle is zero
+    if not any(ang):
+        ang=[0.0,0.0]
+
+    # TEST; Need to get all the correct signs. I find that if a is the eigenvec that gives n_hat, then the sign is determined by 
+    # the relative sign between a and b x c. If they are equal, take the negative of abs(ang) for proper rotations, and the opposite
+    # for improper, and vice versa.
+    if ang[0]*ang[1] < -1.0e-10:
+
+        if np.linalg.norm(1j*np.cross(ang_evec[0],ang_evec[1])-n_hat) < 1.0e-10:
+            ang_to_use=-det*np.abs(ang[0])
+        else:
+            ang_to_use=det*np.abs(ang[0]) 
+    else:
+        ang_to_use=ang[0]
+        
+    # The spin rep is exp[-i \phi \hat{n}\cdot\sigma/2]
+    spin_d=scp.linalg.expm(-1j*0.5*ang_to_use*(sig[0]*n_hat[0]+sig[1]*n_hat[1]+sig[2]*n_hat[2]))
+
+    # Write out some stuff
+    if verbose:
+        np.set_printoptions(suppress=True)
+        np.set_printoptions(precision=1)
+        print("n_hat and angle")
+        print('%3.5f %3.5f %3.5f' % (n_hat[0].real,n_hat[1].real,n_hat[2].real))
+        print(ang)
+        print(spin_d[0,0],spin_d[0,1])
+        print(spin_d[1,0],spin_d[1,1])
+        print(" ")
+
+    return spin_d
+#*************************************************************************************
+
+#*************************************************************************************
+# Generate the symmetry representations of spin 1/2
+def get_spin_rep_old(sym_op,verbose=False):
     '''
     From a given symmerty operation, automatically generate the
     representation for spin 1/2 under that symmetry
@@ -552,7 +701,7 @@ def get_spin_rep(sym_op,verbose=False):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps(wan_files,center_in_cell=False,verbose=True):
+def print_reps(wan_files,center_in_cell=False,verbose=True,remove_rad=-1):
     '''
     Create file 'reps.dat' that includes: The symmetry operations, the
     orbital representations and characters, and the spin 1/2
@@ -601,7 +750,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
         quit()
             
     # Get symmetry operations from pymatgen
-    if point_grp=='3m' or point_grp=='-3m' or point_grp=='6/mmm':
+    if point_grp=='3m' or point_grp=='-3m' or point_grp=='6/mmm' or point_grp=='-6m2':
         pt_sym_ops=get_sym_ops(point_grp,verbose=False,hex_to_cart=True)
     else:
         pt_sym_ops=get_sym_ops(point_grp,verbose=False)
@@ -637,7 +786,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
             f.write('{:.10f}   {:.10f}   {:.10f}\n'.format(sym_op[i,0],sym_op[i,1],sym_op[i,2]))
 
         # Calculate orbital part of representation
-        rep=representation_fast(sym_op,wanns,delr,n_mesh,header)
+        rep=representation_fast(sym_op,wanns,delr,n_mesh,header,remove_rad=remove_rad)
             
         # Get the spin part
         spin_mat=get_spin_rep(sym_op)
@@ -671,7 +820,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps_wann_in(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True):
+def print_reps_wann_in(point_grp,n_mesh,wanns=[],delr=[],out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True,remove_rad=-1):
     '''
     Different version of print_reps that takes as input wanns instead of reading them in from file.
     
@@ -755,9 +904,9 @@ def print_reps_wann_in(wanns,delr,n_mesh,point_grp,out_label='',verbose=True,sym
 
         # Calculate orbital part of representation
         if wanns:
-            rep=representation_fast(sym_op,wanns,delr,n_mesh,[],clean=clean)
+            rep=representation_fast(sym_op,wanns,delr,n_mesh,[],clean=clean,remove_rad=remove_rad)
         else:    
-            rep=get_rep_ylms(use_ylm,n_mesh,rad_scale,sym_op,clean=clean)
+            rep=get_rep_ylms(use_ylm,n_mesh,rad_scale,sym_op,clean=clean,remove_rad=remove_rad)
             
         # Get the spin part
         spin_mat=get_spin_rep(sym_op)
@@ -1042,6 +1191,8 @@ def make_ylm_wanns(ll,n_mesh,basis,rad_scale):
     x,y,z=np.meshgrid(x,y,z)
 
     theta=np.arccos(z/np.sqrt(x**2+y**2+z**2))
+
+    # CONFUSED ABOUT THIS!!!
     phi=np.sign(x)*np.arccos(y/np.sqrt(x**2+y**2))
     
     wanns=[]

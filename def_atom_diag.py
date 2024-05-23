@@ -360,11 +360,17 @@ def check_sym_u_mat(uijkls,n_orb,n_spin,dij=[]):
     None
     '''
 
+    # Make sure we have a list
+    if not isinstance(uijkls, list):
+        _uijkls=[uijkls]
+    else:
+        _uijkls=uijkls
+    
     # Get reps from reps.dat
     if not dij:
         dij=construct_dij(n_orb,n_spin,"reps.dat")
 
-    for uijkl in uijkls:
+    for uijkl in _uijkls:
         i_rep=0
         print("Check if uijkl obeys sym of reps:")
         for rep in dij:
@@ -373,7 +379,7 @@ def check_sym_u_mat(uijkls,n_orb,n_spin,dij=[]):
             Tij=rep[1]
             uijkl_t=transform_U_matrix(uijkl,Tij)
 
-            print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(np.real(uijkl-uijkl_t))))
+            print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",np.amax(np.abs(np.real(uijkl-uijkl_t)))))
             i_rep+=1
 
     return
@@ -396,16 +402,22 @@ def check_sym_t_mat(tijs,n_orb,n_spin,dij=[]):
     '''
 
     #TODO: If we have SOC, this will need to be modified to construct the full spinful reps
+
+    # Make sure we have a list
+    if not isinstance(tijs, list):
+        _tijs=[tijs]
+    else:
+        _tijs=tijs
     
     # Get reps from reps.dat
     if not dij:
         dij=construct_dij(n_orb,n_spin,"reps.dat")
 
-    for tij in tijs:
+    for tij in _tijs:
         print("Check if tij commutes with reps:")
         for i_rep,rep in enumerate(dij):
             print('%s %f %s %f' % ("For rep: ",i_rep," max val: ",\
-                                   np.abs(np.amax(np.matmul(rep[1],tij)-np.matmul(tij,rep[1])))))
+                                   np.amax(np.abs(np.matmul(rep[1],tij)-np.matmul(tij,rep[1])))))
 
     return
 #*************************************************************************************
