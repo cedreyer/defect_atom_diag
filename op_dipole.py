@@ -1596,3 +1596,100 @@ def sympyize_unitary_matrix(unitary):
                     sp_unitary[i,j]=-val[1]
 
     return sp_unitary
+
+#*************************************************************************************
+# Symmetrize the uijkl matrix
+def symmetrize_uijkl(uijkls,dij):
+    
+    # Make sure we have a list                                                                                                                                                                                                                               
+    if not isinstance(uijkls, list):
+        _uijkls=[uijkls]
+    else:
+        _uijkls=uijkls
+
+    uijkls_sym=[]
+    for uijkl in _uijkls:
+        
+        uijkl_sym=np.copy(uijkl)
+        
+        for rep in dij:
+            
+            # Find multiplicty of symmetry operation
+            sym_op=rep[0]
+            for mult in range(1,7):
+                
+                if np.amax(np.abs(sym_op - np.eye(3))) < 1e-5: 
+                    break
+                else:
+                    sym_op = sym_op @ rep[0]
+            
+            #print(mult)
+            
+            # Symetrize
+            _uijkl_sym=uijkl_sym/mult
+            for n in range(0,mult-1):
+                term=np.copy(uijkl_sym)
+                for m in range(0,n+1):
+                    term=transform_U_matrix(term, rep[1].T)
+
+                _uijkl_sym += term/(mult)
+                
+            uijkl_sym=_uijkl_sym
+        
+        uijkls_sym.append(uijkl_sym)
+                                                                                                                                                                                                                                           
+    if not isinstance(uijkls, list):
+        return uijkls_sym[0]
+        
+    else:
+        return uijkls_sym
+#*************************************************************************************
+                    
+#*************************************************************************************
+# Symmetrize the uijkl matrix
+def symmetrize_tij(tijs,dij):
+    
+    # Make sure we have a list                                                                                                                                                                                                                               
+    if not isinstance(tijs, list):
+        _tijs=[tijs]
+    else:
+        _tijs=tijs
+
+    tijs_sym=[]
+    for tij in _tijs:
+        
+        tij_sym=np.copy(tij)
+        
+        for rep in dij:
+            
+            # Find multiplicty of symmetry operation
+            sym_op=rep[0]
+            for mult in range(1,7):
+                
+                if np.amax(np.abs(sym_op - np.eye(3))) < 1e-5: 
+                    break
+                else:
+                    sym_op = sym_op @ rep[0]
+            
+            #print(mult)
+            
+            # Symetrize
+            _tij_sym=tij_sym/mult
+            for n in range(0,mult-1):
+                term=np.copy(tij_sym)
+                for m in range(0,n+1):
+                    term=rep[1].T @ term @ rep[1]
+
+                _tij_sym += term/(mult)
+        
+            tij_sym=_tij_sym
+            
+        tijs_sym.append(tij_sym)
+                                                                                                                                                                                                                                           
+    if not isinstance(tijs, list):
+        return tijs_sym[0]
+        
+    else:
+        return tijs_sym            
+
+#*************************************************************************************
