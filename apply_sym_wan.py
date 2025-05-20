@@ -1,4 +1,4 @@
-#!/usr/bin/pythonA
+#!/usr/bin/pytAAhonA
 
 import numpy as np
 import scipy.interpolate as inter
@@ -106,7 +106,7 @@ def load_cube_files(wf_file_names,convert_lat=False, path='./'):
 
 #*************************************************************************************
 # Load an xsf files
-def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
+def load_xsf_files(wf_file_names,path='./',flip_xz=True,convert_lat=True,npad=0,center=np.array([0.5,0.5,0.5])):
     '''
     Load some wannier functions in xsf file format.
 
@@ -141,7 +141,7 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
                 ln_start=iline
                 break
 
-        n_meshes.append([int(lines1[ln_start+1].split()[0]),int(lines1[ln_start+1].split()[1]),int(lines1[ln_start+1].split()[2])])
+        n_meshes.append(np.array([int(lines1[ln_start+1].split()[0]),int(lines1[ln_start+1].split()[1]),int(lines1[ln_start+1].split()[2])]))
 
         # Get the header (makes it easier for output). Assume all are the same
         headers.append(lines1[0:ln_start+6])
@@ -156,9 +156,6 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
         lat_vec=np.reshape(lat_vec,(3,3))
         lat_vecs.append(lat_vec)
             
-
-        # TEST
-        #delrs.append(lat_vec.dot(np.reciprocal(np.array([float(n_meshes[-1][0]),float(n_meshes[-1][1]),float(n_meshes[-1][2])]))))
         delrs.append([np.linalg.norm(lat_vec[0,:])/float(n_meshes[-1][0]),np.linalg.norm(lat_vec[1,:])/float(n_meshes[-1][1]),np.linalg.norm(lat_vec[2,:])/float(n_meshes[-1][2])])
         
         # Check if same number of mesh points
@@ -185,7 +182,6 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
                 wann1.append(float(grds))
                     
                 
-        #wann1=np.reshape(wann1,(n_meshes[0][0],n_meshes[0][1],n_meshes[0][2]))
         wann1=np.reshape(wann1,(n_meshes[0][2],n_meshes[0][1],n_meshes[0][0]))
 
         # Seems like for xsf, the x and z axes are switched
@@ -196,30 +192,39 @@ def load_xsf_files(wf_file_names,convert_lat=True,flip_xz=True,path='./'):
         # Convert to cartesian coordinates.
         if convert_lat:
             
-            # normalize the lattice vectors using the first vector
-            lat_vec_norm=lat_vec/np.linalg.norm(lat_vec[0,:])
-
-            # Make sure transformed center will fall in range of mesh. NEEDS MORE TESTING
-            cen_tst=np.dot(np.array([n_meshes[0][0]/2,n_meshes[0][1]/2,n_meshes[0][2]/2]),np.linalg.inv(lat_vec_norm).T)
-            offset=np.zeros(3)
-            for idir in range(3):
-                if np.abs(cen_tst[idir]-n_meshes[0][idir]) < 5.0: # Magic number :( not sure what exactly this should be
-                    offset[idir]=n_meshes[0][idir]/2
-            
+            # normalize the lattice vectors
+            # CD: DO WE NOTMALIZE TO FIRST VECTOR<OR EACH INDIVIDUALLY????
+            lat_vec_norm=np.zeros([3,3])
+            for i in range(3):
+                lat_vec_norm[i,:]=lat_vec[i,:]/np.linalg.norm(lat_vec[i,:])
+                #lat_vec_norm[i,:]=lat_vec[i,:]/np.linalg.norm(lat_vec[0,:])
                 
+            # Pad with zeros
+            wann1=np.pad(wann1,npad)
+            n_mesh_pad=n_meshes[0]+npad
+            
+            # Keep it approximatly in the center
+            center_grid=n_meshes[0]*center+npad
+
+            # CD: IN LATEST EXAMPLE, SEEMED TO NEED TO CHANGE THE SIGN OF THIS TO POSITIVE...??? 
+            offset=(center_grid-center_grid.dot(np.linalg.inv(lat_vec_norm).T)).dot(lat_vec_norm.T)
+            
             # Apply symmetry element
             wann1=sni.affine_transform(wann1,np.linalg.inv(lat_vec_norm).T,offset=offset)
         
             # Recenter wannier function
-            wann1,_com=center_wan_func(wann1,n_meshes[0])
-
-
-        #write_wann('TEST.xsf',wann1,n_meshes[-1],headers[-1],lat_vec)
+            offset=(center_grid-offset).dot(lat_vec_norm)-n_mesh_pad/2
+            wann1=sni.affine_transform(wann1,np.eye(3),offset=offset)
             
         # Add wannier function
         wanns.append(wann1)
+        
+    if convert_lat:
+        n_mesh_out=n_mesh_pad
+    else:
+        n_mesh_out=n_meshes[0]
 
-    return wanns, delrs[0], n_meshes[0], headers[0]
+    return wanns, delrs[0], n_mesh_out, headers[0]
 #*************************************************************************************
 
 #*************************************************************************************
@@ -454,7 +459,7 @@ def get_sym_ops(pg_symbol,verbose=False,hex_to_cart=False,hex_to_rhomb=False):
 
 #*************************************************************************************
 # For a given symmetry operation, calculate the representation. For now specialize to cube format
-def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',clean=True,remove_rad=-1):
+def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',center=np.array([0.5,0.5,0.5]),clean=True,clean_tol=5.0e-2,clean_vals=[0.0,1.0,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)],remove_rad=-1):
     '''Calculate the single-particle symmetry representation matrix for
     symmerty operation given by sym_op. For now specialize to cube format
 
@@ -471,8 +476,12 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
 
     # Initialize rep
     n_wf=len(wanns)
-    #rep=np.zeros([n_wf,n_wf],dtype=float)
     rep=np.zeros([n_wf,n_wf],dtype=float)
+    
+    # Normalize wannier functions
+    for iwann,wann in enumerate(wanns):
+        wanns[iwann]=normalize(wann,delr)
+
 
     # Get center of masses
     coms,com_tot=get_coms(wanns)
@@ -483,16 +492,19 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
         for j,wann_j in enumerate(wanns):
             
             if centering_type=='each':
-                center=coms[j]
+                center_grid=coms[j]
             elif centering_type=='all':
-                center=com_tot
+                center_grid=com_tot
+            elif centering_type=='fixed':
+                center_grid=n_mesh*center
             else:
                 print('ERROR: Centering type non valid. ')
                 raise
 
             # Get offset                                                 
-            offset=-(center-center.dot(sym_op)).dot(np.linalg.inv(sym_op))
+            offset=-(center_grid-center_grid.dot(sym_op)).dot(np.linalg.inv(sym_op))
 
+            
             # Remove outside radius. Seems to help with xsf files.
             if remove_rad > 0:
                 wann_j=normalize(remove_outside_radius(wann_j,n_mesh,coms[j],radius=remove_rad),delr)
@@ -500,22 +512,32 @@ def representation_fast(sym_op,wanns,delr,n_mesh,header,centering_type='each',cl
             
             # Apply symmetry element: this is what takes time
             wann_j_sym=sni.affine_transform(wann_j,sym_op,offset=offset)
+            
+            # TEST
+            #if i==j and i==1:
+            #    print('center',center_grid)
+            #    print('offset',offset)
+            #    fig1,(ax1,ax2)=plt.subplots(1,2,figsize=(10,5))
+            #    ax1.contourf(wanns[1][:,:,int(n_mesh[2]/2)])
+            #    ax2.contourf(wann_j_sym[:,:,int(n_mesh[2]/2)])
+            #    return(wann_j)
+
 
             # Make sure both wannier functions are centered for 'each'
             if centering_type=='each':
                 wann_j_sym=shift_wann_func(wann_j_sym,coms[i])
             
             sym_rep=int_3d(np.multiply(wann_i,wann_j_sym),delr)
-
+            
 
             if clean:
-                clean_tol=5.0e-2
-                clean_vals=[0.0,1.0,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)]
                 for val in clean_vals:
                     if np.abs(sym_rep-val) < clean_tol:
                         sym_rep=val
+                        break
                     elif np.abs(sym_rep+val) < clean_tol:
                         sym_rep=-val
+                        break
             
             rep[i,j]=sym_rep
             
@@ -820,7 +842,7 @@ def print_reps(wan_files,center_in_cell=False,verbose=True,remove_rad=-1):
 
 #*************************************************************************************
 # Print represeantations
-def print_reps_wann_in(point_grp,n_mesh,wanns=[],delr=[],out_label='',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True,remove_rad=-1):
+def print_reps_wann_in(point_grp,n_mesh,wanns=[],delr=[],out_label='',centering_type='each',verbose=True,sym_op_lim=[],use_ylm=-1,rad_scale=4.0,clean=True,clean_tol=5.0e-2,clean_vals=[0.0,1.0,np.sqrt(3)/2,0.5,0.25,1/np.sqrt(2),np.sqrt(3/8),np.sqrt(5/8)],remove_rad=-1):
     '''
     Different version of print_reps that takes as input wanns instead of reading them in from file.
     
@@ -863,7 +885,7 @@ def print_reps_wann_in(point_grp,n_mesh,wanns=[],delr=[],out_label='',verbose=Tr
     '''
 
     # Get symmetry operations from pymatgen
-    if point_grp=='3m' or point_grp=='-3m' or point_grp=='6/mmm':
+    if point_grp in ['3m','-3m', '6/mmm', '-6m2']:
         pt_sym_ops=get_sym_ops(point_grp,verbose=False,hex_to_cart=True)
     else:
         pt_sym_ops=get_sym_ops(point_grp,verbose=False)
@@ -904,9 +926,9 @@ def print_reps_wann_in(point_grp,n_mesh,wanns=[],delr=[],out_label='',verbose=Tr
 
         # Calculate orbital part of representation
         if wanns:
-            rep=representation_fast(sym_op,wanns,delr,n_mesh,[],clean=clean,remove_rad=remove_rad)
+            rep=representation_fast(sym_op,wanns,delr,n_mesh,[],clean=clean,clean_tol=clean_tol,clean_vals=clean_vals,remove_rad=remove_rad,centering_type=centering_type)
         else:    
-            rep=get_rep_ylms(use_ylm,n_mesh,rad_scale,sym_op,clean=clean,remove_rad=remove_rad)
+            rep=get_rep_ylms(use_ylm,n_mesh,rad_scale,sym_op,clean=clean,clean_tol=clean_tol,clean_vals=clean_vals,remove_rad=remove_rad,centering_type=centering_type)
             
         # Get the spin part
         spin_mat=get_spin_rep(sym_op)
@@ -1158,13 +1180,15 @@ def remove_outside_radius(wann,n_mesh,com,radius=20.0):
     wann: Modified Wannier function on 3D grid
     '''
 
+    _wann=np.copy(wann)
+    
     for i in range(n_mesh[0]):
         for j in range(n_mesh[1]):
             for k in range(n_mesh[2]):
                 norm= np.linalg.norm(np.array([i-com[0],j-com[1],k-com[2]]))
                 if norm > radius:
-                    wann[i,j,k] = 0.0
-    return wann
+                    _wann[i,j,k] = 0.0
+    return _wann
 #*************************************************************************************
 
 #*************************************************************************************

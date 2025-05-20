@@ -40,7 +40,7 @@ from triqs_tprf.wannier90 import parse_lattice_vectors_from_wannier90_wout
 
 #*************************************************************************************
 # Tune chemical, generate ad and dm
-def solve_ad(H,spin_names,orb_names,fops,mu_in):
+def solve_ad(H,spin_names,orb_names,fops,mu_in,verbose=False):
     '''
     Solve the atomic problem and tune the chemical potential to the
     target filling. Very inefficient way of doing it but works for now.
@@ -51,6 +51,7 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in):
     orb_names: List of orbitals
     fops: Many-body operators
     mu_in: Dictionary for chem pot options
+    verbose: write stuff out 
     
     Outputs:
     H: Hamiltonian with chemical potential term added
@@ -124,7 +125,9 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in):
 
     if not const_occ:
         print("Chemical potential: ",mu)
-    print('# of e-: ', filling)
+
+    if verbose:
+        print('# of e-: ', filling)
 
 
     return ad
@@ -314,11 +317,19 @@ def wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=[],verbose=False):
     uijkl_conv: uijkl matrix in diagonal basis
 
     '''
+    # Make sure we have a list
+    if not isinstance(tijs, list):
+        _tijs=[tijs]
+    else:
+        _tijs=tijs
 
+    if not isinstance(uijkls, list):
+        _uijkls=[uijkls]
+    else:
+        _uijkls=uijkls
+    
     tij_conv=[]
-    for tij in tijs:
-
-        print('TIJ',tij)
+    for tij in _tijs:
         
         evals,evecs=np.linalg.eig(tij)
         if verbose:
@@ -332,16 +343,20 @@ def wan_diag_basis(n_orb,tijs,H_elmt='both',uijkls=[],verbose=False):
 
     if H_elmt == 'both':
 
-        uijkl_conv=[]
-        for uijkl in uijkls:
+        uijkls_conv=[]
+        for uijkl in _uijkls:
             #uijkl_conv=uijkl
             basis_trans=np.linalg.inv(evecs)#evecs.T????
-            uijkl_conv.append(transform_U_matrix(uijkl,basis_trans))
+            uijkls_conv.append(transform_U_matrix(uijkl,basis_trans))
             #print('WARNING: Band basis with spin polarization not tested!') 
 
-        uijkls=uijkl_conv
+        #uijkls=uijkl_conv
             
-    return tij_conv, uijkls
+        return tij_conv, uijkls_conv
+
+    else:
+        
+        return tij_conv
 
 #*************************************************************************************
 
@@ -438,24 +453,31 @@ def add_hopping(H,spin_names,orb_names,int_in,verbose=False):
     H: Hamiltonian with kinetic part
     '''
 
-    # Test for spin pol
-    if len(int_in['tij']) == 1:
-           tij=[int_in['tij'][0],int_in['tij'][0]]
-    else:
-           tij=[int_in['tij'][0],int_in['tij'][1]]
-
+    tijs=int_in['tij']
+    
     # For testing to check the symmetry of the tij matrix
     n_orb=len(orb_names)
     n_spin=len(spin_names)
 
     # TEST: use diagonal basis
     if int_in['diag_basis']:
-        tij,uijkl=wan_diag_basis(n_orb,tij,H_elmt='tij')
+        tijs=wan_diag_basis(n_orb,tijs,H_elmt='tij')
 
     if int_in['sym']: # Check the sym verus provided reps
-        check_sym_t_mat(tij,n_orb,n_spin)
+        check_sym_t_mat(tijs,n_orb,n_spin)
 
+    # Test for spin pol
+    if len(tijs) == 1:
+        tij=[tijs[0],tijs[0]]
+    else:
+        tij=[tijs[0],tijs[1]]
 
+    # Test for spin pol
+    #if len(int_in['tij']) == 1:
+    #       tij=[int_in['tij'][0],int_in['tij'][0]]
+    #else:
+    #       tij=[int_in['tij'][0],int_in['tij'][1]]
+        
     # Make noniteracting operator
     H_kin=Operator()
     for ispin,s in enumerate(spin_names):

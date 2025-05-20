@@ -890,9 +890,11 @@ def get_char_table(pg_symbol):
 
     '''
     
-    ops=get_sym_ops(pg_symbol)
+    #ops=get_sym_ops(pg_symbol)
     spin=False
     if pg_symbol=='m-3m' or pg_symbol=='Oh':
+
+        ops=get_sym_ops('m-3m')
         
         sym_names = ['1','4','2_{100}','3','2_{110}','-1','-4','m_{100}','-3','m_{110}']
         sym_mult = [1,6,3,8,6,1,6,3,8,6]
@@ -923,6 +925,8 @@ def get_char_table(pg_symbol):
                              [4,0,-1,0,0,-4,0,1,0,0]])
         
     elif pg_symbol=='-43m' or pg_symbol=='Td':
+
+        ops=get_sym_ops('-43m')
         
         sym_names = ['1','3','2_{100}','-4','m_{110}']
         sym_mult = [1,8,3,6,6]
@@ -937,7 +941,9 @@ def get_char_table(pg_symbol):
         ops_index=[[1],[3,7,14,15,16,18,19,22],[0,10,11],[2,5,13,17,20,21],[4,6,8,9,12,23]]
         
     elif pg_symbol=='6/mmm' or pg_symbol=='D6h':
-        
+
+        ops=get_sym_ops('6/mmm')
+
         sym_names = ['1','6','3','2_z','2_{120}','2_{100}','-1','-6','-3','m_z','m_{120}','m_{100}']
         sym_mult = [1,2,2,1,3,3,1,2,2,1,3,3]
         irrep_labels = ['A1g','A1u','A2g','A2u','B1g','B1u','B2g','B2u','E2u','E2g','E1u','E1g']
@@ -970,6 +976,8 @@ def get_char_table(pg_symbol):
         
     elif pg_symbol=='3m' or pg_symbol=='C3v':
 
+        ops=get_sym_ops('3m')
+        
         sym_names = ['1','3','m_{1-10}']
         sym_mult = [1,2,3]
         irrep_labels = ['A1','A2','E']
@@ -980,6 +988,8 @@ def get_char_table(pg_symbol):
         ops_index=[[3],[2,5],[0,1,4]]
 
     elif pg_symbol=='mmm' or pg_symbol=='D2h':
+
+        ops=get_sym_ops('mmm')
 
         sym_names = ['1','2z','2y','2x','-1','mz','my','mx']
         sym_mult = [1,1,1,1,1,1,1,1]
@@ -998,6 +1008,8 @@ def get_char_table(pg_symbol):
 
     elif pg_symbol=='-6m2' or pg_symbol=='D3h':
 
+        ops=get_sym_ops('-6m2')
+
         sym_names = ['1','m','3','-6','2_{120}','m_{100}']
         sym_mult = [1,1,2,2,3,3]
         irrep_labels = ["A'1","A'2","A''1","A''2","E'","E''"]
@@ -1009,8 +1021,7 @@ def get_char_table(pg_symbol):
                                [2,2,-1,-1,0,0],
                                [2,-2,-1,1,0,0]])
         
-        ops_index=[[2],[4],[5,10],[0,7],[1,3,11],[6,8,9]]
-
+        ops_index=[[2],[6],[5,10],[0,7],[1,3,11],[4,8,9]]
         
     else:
         raise ValueError('Point group not coded.')
@@ -1272,7 +1283,6 @@ def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
     verbose: Write stuff out
     
     Outputs:
-    pg: Point group object
     states_proj: List containing the projection of each function onto the irrep partner functions
     
     
@@ -1415,7 +1425,6 @@ def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True,cart_to_he
     verbose: Write stuff out
     
     Outputs:
-    pg: Point group object
     states_proj: List containing the projection of each function onto the irrep partner functions
 
     '''
@@ -1442,17 +1451,19 @@ def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True,cart_to_he
                 # Get the single-particle rep for this symmetry element
                 rep=dij[sym_el][1]
 
-                if cart_to_hex or rhomb_to_hex:
-                    sym=get_sym_ops(pg_symbol,hex_to_cart=cart_to_hex,hex_to_rhomb=rhomb_to_hex)[sym_el]
+                if cart_to_hex:
+                    #sym=get_sym_ops(pg_symbol,hex_to_cart=cart_to_hex,hex_to_rhomb=rhomb_to_hex)[sym_el]
+                    sym=get_sym_ops(pg_symbol)[sym_el] 
+                elif rhomb_to_hex:
+                    sym=get_sym_ops(pg_symbol,hex_to_rhomb=True)[sym_el] 
                 else:
                     sym=dij[sym_el][0]
 
-                
                 # Find this sym el:
                 try:
                     sym_ind=np.where([np.allclose(sym,i) for i in rot_mats])[0][0]
                 except:
-                    print(rot_mats)
+                    print(sym)
                     raise Exception('Cannot find symmetry operation!')
                     
                 D_R=np.conjugate(np.array(pg.get_matrices(irrep=irrep, element=pg.elements[sym_ind])[0],dtype=complex)).T 
@@ -1479,6 +1490,7 @@ def get_strong_projection_kl(pg,orb_names,spin_names,dij,verbose=True,cart_to_he
     return states_proj
 
 #*************************************************************************************
+
 
 #*************************************************************************************
 # Get unitary from projections
