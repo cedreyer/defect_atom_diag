@@ -1022,6 +1022,50 @@ def get_char_table(pg_symbol):
                                [2,-2,-1,1,0,0]])
         
         ops_index=[[2],[6],[5,10],[0,7],[1,3,11],[4,8,9]]
+
+    elif pg_symbol=='mm2' or pg_symbol=='C2v':
+
+        ops=get_sym_ops('mm2')
+
+        sym_names = ['1','2z','my','mx']
+        sym_mult = [1,1,1,1]
+        irrep_labels = ["A1","A2","B1","B2"]
+        irrep_deg = [1,1,1,1]
+        characters = np.array([[1,1,1,1],
+                               [1,1,-1,-1],
+                               [1,-1,1,-1],
+                               [1,-1,-1,1]])
+        
+        ops_index=[[2],[3],[1],[0]]
+
+    elif pg_symbol=='222' or pg_symbol=='D2':
+
+        ops=get_sym_ops('222')
+
+        sym_names = ['1','2z','2y','2x']
+        sym_mult = [1,1,1,1]
+        irrep_labels = ["A","B1","B2","B3"]
+        irrep_deg = [1,1,1,1]
+        characters = np.array([[1,1,1,1],
+                               [1,1,-1,-1],
+                               [1,-1,1,-1],
+                               [1,-1,-1,1]])
+        
+        ops_index=[[2],[3],[1],[0]]
+
+    elif pg_symbol=='m' or pg_symbol=='Cs':
+
+        ops=get_sym_ops('m')
+
+        sym_names = ['1','m']
+        sym_mult = [1,1]
+        irrep_labels = ["A'","A''"]
+        irrep_deg = [1,1,1,1]
+        characters = np.array([[1,1],
+                               [1,-1]])
+        
+        ops_index=[[0],[1]]
+
         
     else:
         raise ValueError('Point group not coded.')
@@ -1245,14 +1289,15 @@ def weak_proj_tij(pg_symbol,orb_names,spin_names,dij,cfs=[],spin=False):
         cfs=[cfs[0],cfs[0]]
     
     if len(cfs[0]) != n_ops or len(cfs[1]) != n_ops:
-        raise ValueError('cfs must length equal to number of irreps.')
+        raise ValueError('cfs must length equal to number of irreps. nops:',n_ops,'len(cfs):',len(cfs[0]))
     
     # Now make tij
     tij=[]
     for ispin in range(n_spin):
         tij_spin=np.zeros((n_orb,n_orb),dtype=complex)
         for icf,cf in enumerate(cfs[ispin]):
-            #print(proj_irreps[icf][1].shape)
+
+
             tij_spin+=cf*proj_irreps[icf][1][0+n_orb*ispin:n_orb+n_orb*ispin,0+n_orb*ispin:n_orb+n_orb*ispin]
     
         tij.append(tij_spin)
