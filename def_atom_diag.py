@@ -1318,7 +1318,7 @@ def make_spin_pol_H_int(uijkls,spin_names,orb_names,fops):
 # Read in files for spin polarized interaction
 def read_tij(wan_file,cmplx,spin_names,orb_names):
     '''
-
+    
     Inputs:
 
     Outputs:

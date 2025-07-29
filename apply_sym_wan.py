@@ -289,7 +289,7 @@ def normalize(wann,delr):
     
     '''
 
-    wann1_squared =np.multiply(wann,wann)
+    wann1_squared =np.multiply(np.conjugate(wann),wann) 
     wan_int=int_3d(wann1_squared,delr)
     wann1=wann/np.sqrt(wan_int)
     

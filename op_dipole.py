@@ -1324,7 +1324,7 @@ def get_strong_projection_kk(pg,orb_names,spin_names,dij,verbose=True):
     pg: PointGroup object
     orb_names: Names of orbitals
     spin_names: Names of spins
-    dij: Single-particle symmetry representations of the bais
+    dij: Single-particle symmetry representations of the basis
     verbose: Write stuff out
     
     Outputs:
@@ -1657,6 +1657,18 @@ def sympyize_unitary_matrix(unitary):
 #*************************************************************************************
 # Symmetrize the uijkl matrix
 def symmetrize_uijkl(uijkls,dij):
+
+    '''
+    Symmetrize the U_ijkl matrix by applying symmetry operations
+
+    Input:
+    uijkls: U_ijkl matrices for spin channels
+    dij: Single-particle symmetry representations of the basiss
+
+    Output:
+    uijkls_sym: Symmetrized U_ijkl
+    
+    '''
     
     # Make sure we have a list                                                                                                                                                                                                                               
     if not isinstance(uijkls, list):
@@ -1703,8 +1715,20 @@ def symmetrize_uijkl(uijkls,dij):
 #*************************************************************************************
                     
 #*************************************************************************************
-# Symmetrize the uijkl matrix
+# Symmetrize the tij matrix
 def symmetrize_tij(tijs,dij):
+
+    '''
+    Symmetrize the U_ijkl matrix by applying symmetry operations
+
+    Input:
+    tijs: Hopping matrices for spin channels
+    dij: Single-particle symmetry representations of the basiss
+
+    Output:
+    tijs_sym: Symmetrized t_ij
+    
+    '''
     
     # Make sure we have a list                                                                                                                                                                                                                               
     if not isinstance(tijs, list):
@@ -1750,3 +1774,175 @@ def symmetrize_tij(tijs,dij):
         return tijs_sym            
 
 #*************************************************************************************
+
+#*************************************************************************************
+# Electron-hole correlation function
+def get_el_h_L_old(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,omega_range=[0,10],omega_n_mesh=10,verbose=False,eta=0.01):
+
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    omegas=np.linspace(omega_range[0],omega_range[1],omega_n_mesh)
+
+    kB=8.61733262e-5 # eV/K 
+    
+    den_mats=[]
+    for alpha in range(min(n_alpha,len(eigensys))):
+        
+        for lam in range(min(n_lambda,len(eigensys))):
+            
+            if alpha==lam: continue
+
+            # Convert from states in energy order to those in Hilbert space
+            n_eig_a=int(eigensys[alpha][3])
+            n_eig_l=int(eigensys[lam][3])
+        
+            # Get desired states in eigenvector basis
+            state_eig_a = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_a[int(n_eig_a)]=1.0
+            state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_l[int(n_eig_l)]=1.0
+        
+            # Construct density matrix
+            den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+            for s1 in range(0,n_spin):
+                for s2 in range(0,n_spin):
+                    for ii in range(0,n_orb):
+                        for jj in range(0,n_orb):
+                        
+                            den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
+
+                            xx=ii+s1*n_orb
+                            yy=jj+s2*n_orb
+                        
+                            den_mat[xx,yy]=np.dot(state_eig_a,act(den_op,state_eig_l,ad))
+
+            #den_mat=np.eye(n_spin*n_orb)
+            den_mats.append([eigensys[lam][1]-eigensys[alpha][1],den_mat,np.einsum('ij,kl->ijkl',den_mat,np.conjugate(den_mat.T))])
+        
+
+
+    L_omega=[]
+    for omega in omegas:
+        L=0
+        for dm in den_mats:
+            L+=1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)
+            #print((1-np.exp(dm[0]/(kB*T))),dm[0])
+            #L+=1j * (1-np.exp(beta*dm[0])) / (omega+dm[0]+1j*eta)
+            #print(dm[0])
+        L_omega.append(L)
+
+    return omegas,L_omega, den_mats
+        
+#*************************************************************************************
+
+#*************************************************************************************
+# Electron-hole correlation function
+def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,w_min,w_max,n_w,eta=0.01):
+
+    '''
+    Computes retarded electron-hole correlation function, Eq. XX in Interacting electrons.
+
+    Input:
+    T: Temperature in K
+    ad: atom diag object
+    spin_names: List of spins
+    orb_names: Orbital names  
+    eigensys: Formatted solution to atom diag
+    n_lambda: "Unoocupied states"
+    n_alpha: "Occupied states," need to replace with Fermi weights
+    w_min: Real frequency mesh minimum
+    w_max: Real frequency mesh max
+    n_w: Real frequency mesh number of points
+    eta: imaginary part for broadening
+    
+    
+    Output:
+    L2w: Retarded electron-hole correlation function as a triqs GF object
+    
+    '''
+    
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    omegas=np.linspace(w_min,w_max,n_w)
+
+    # Set up Greens function object:
+    w_mesh = MeshReFreq(window=(w_min,w_max), n_w=n_w)
+    L2w= Gf(mesh=w_mesh, target_shape=[n_spin*n_orb,n_spin*n_orb,n_spin*n_orb,n_spin*n_orb])
+
+    kB=8.61733262e-5 # eV/K 
+    
+    den_mats=[]
+    for alpha in range(min(n_alpha,len(eigensys))):
+        
+        for lam in range(min(n_lambda,len(eigensys))):
+            
+            if alpha==lam: continue
+
+            # Convert from states in energy order to those in Hilbert space
+            n_eig_a=int(eigensys[alpha][3])
+            n_eig_l=int(eigensys[lam][3])
+        
+            # Get desired states in eigenvector basis
+            state_eig_a = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_a[int(n_eig_a)]=1.0
+            state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_l[int(n_eig_l)]=1.0
+        
+            # Construct density matrix
+            den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+            for s1 in range(0,n_spin):
+                for s2 in range(0,n_spin):
+                    for ii in range(0,n_orb):
+                        for jj in range(0,n_orb):
+                        
+                            den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
+
+                            xx=ii+s1*n_orb
+                            yy=jj+s2*n_orb
+                        
+                            den_mat[xx,yy]=np.dot(state_eig_a,act(den_op,state_eig_l,ad))
+
+            #den_mat=np.eye(n_spin*n_orb)
+            den_mats.append([eigensys[lam][1]-eigensys[alpha][1],den_mat,np.einsum('ij,kl->ijkl',den_mat,np.conjugate(den_mat.T))])
+            
+    L_omega=[]
+    for omega in omegas:
+        L=0
+        for dm in den_mats:
+            L+=1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)
+            #print((1-np.exp(dm[0]/(kB*T))),dm[0])
+            #L+=1j * (1-np.exp(beta*dm[0])) / (omega+dm[0]+1j*eta)
+            #print(dm[0])
+        L_omega.append(L)
+
+
+    L_omega=np.stack(L_omega)
+        
+    for orb_1 in range(n_orb*n_spin):
+        for orb_2 in range(n_orb*n_spin):
+            for orb_3 in range(n_orb*n_spin):
+                for orb_4 in range(n_orb*n_spin):
+                    Gw=Gf(mesh=w_mesh, data=L_omega[:,orb_1,orb_2,orb_3,orb_4])
+                    L2w[orb_1,orb_2,orb_3,orb_4]<<Gw
+        
+    return L2w #omegas,L_omega, den_mats
+        
+#*************************************************************************************
+
+#*************************************************************************************
+# Density-density susceptibility
+def get_chi_den(L_omega,n_orb,n_spin,omegas):
+        
+    chis=[]
+    for iomega,_ in enumerate(omegas):
+        chi=np.zeros([n_orb*n_spin,n_orb*n_spin],dtype=complex)
+        for orb_1 in range(n_orb*n_spin):
+            for orb_2 in range(n_orb*n_spin):
+                chi[orb_1,orb_2]=L_omega[iomega][orb_1,orb_2,orb_2,orb_1]
+
+        chis.append(chi)
+            
+    return chis
+
+    
+
