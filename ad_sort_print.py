@@ -18,7 +18,7 @@ from apply_sym_wan import *
 # Tools for sorting and printing the output of atom diag
 # Cyrus Dreyer, Flatiron CCQ and Stony Brook University 
 # 09/10/19
-
+#
 #*************************************************************************************
 # Print out some properties of the ground state
 def print_occ_ang_mom(orb_names,spin_names,fops,ad,ml_order,prt_L):
