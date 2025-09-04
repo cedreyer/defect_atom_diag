@@ -23,7 +23,7 @@ from apply_sym_wan import *
 # Get expectation values of an operator for all states. Should be used in many of the operations below!!!
 def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
     '''
-    Get the density matricies <c^\dagger_i c_j> 
+    Get expectation values of an operator for all states
 
     Inputs: 
     ad: Solution to atomic problem
@@ -62,7 +62,7 @@ def get_exp_vals(ad,spin_names,orb_names,fops,operator,verbose=False):
 # Get expectation value of an operator for ONE states. Should be used in many of the operations below!!!
 def get_exp_val(ad,state,operator):
     '''
-    Get the density matricies <c^\dagger_i c_j> 
+    Get expectation value of an operator for ONE state. 
 
     Inputs: 
     ad: Solution to atomic problem
@@ -1777,67 +1777,7 @@ def symmetrize_tij(tijs,dij):
 
 #*************************************************************************************
 # Electron-hole correlation function
-def get_el_h_L_old(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,omega_range=[0,10],omega_n_mesh=10,verbose=False,eta=0.01):
-
-    n_orb=len(orb_names)
-    n_spin=len(spin_names)
-    omegas=np.linspace(omega_range[0],omega_range[1],omega_n_mesh)
-
-    kB=8.61733262e-5 # eV/K 
-    
-    den_mats=[]
-    for alpha in range(min(n_alpha,len(eigensys))):
-        
-        for lam in range(min(n_lambda,len(eigensys))):
-            
-            if alpha==lam: continue
-
-            # Convert from states in energy order to those in Hilbert space
-            n_eig_a=int(eigensys[alpha][3])
-            n_eig_l=int(eigensys[lam][3])
-        
-            # Get desired states in eigenvector basis
-            state_eig_a = np.zeros((int(ad.full_hilbert_space_dim)))
-            state_eig_a[int(n_eig_a)]=1.0
-            state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
-            state_eig_l[int(n_eig_l)]=1.0
-        
-            # Construct density matrix
-            den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
-            for s1 in range(0,n_spin):
-                for s2 in range(0,n_spin):
-                    for ii in range(0,n_orb):
-                        for jj in range(0,n_orb):
-                        
-                            den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
-
-                            xx=ii+s1*n_orb
-                            yy=jj+s2*n_orb
-                        
-                            den_mat[xx,yy]=np.dot(state_eig_a,act(den_op,state_eig_l,ad))
-
-            #den_mat=np.eye(n_spin*n_orb)
-            den_mats.append([eigensys[lam][1]-eigensys[alpha][1],den_mat,np.einsum('ij,kl->ijkl',den_mat,np.conjugate(den_mat.T))])
-        
-
-
-    L_omega=[]
-    for omega in omegas:
-        L=0
-        for dm in den_mats:
-            L+=1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)
-            #print((1-np.exp(dm[0]/(kB*T))),dm[0])
-            #L+=1j * (1-np.exp(beta*dm[0])) / (omega+dm[0]+1j*eta)
-            #print(dm[0])
-        L_omega.append(L)
-
-    return omegas,L_omega, den_mats
-        
-#*************************************************************************************
-
-#*************************************************************************************
-# Electron-hole correlation function
-def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,w_min,w_max,n_w,eta=0.01):
+def get_el_h_L_old(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,w_min,w_max,n_w,eta=0.01):
 
     '''
     Computes retarded electron-hole correlation function, Eq. XX in Interacting electrons.
@@ -1909,7 +1849,17 @@ def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,w_min,w_max,n
     for omega in omegas:
         L=0
         for dm in den_mats:
-            L+=1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)
+            L+=1j * (1-np.exp(-dm[0]/(kB*T)))*dm[2] / (omega-dm[0]+1j*eta)
+            #L+=1j * dm[2] / (omega+dm[0]+1j*eta)
+
+            # TEST
+            #for el in np.ndarray.flatten(1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)):
+            #    if not el==el:
+            #        print('NAN!')
+            #        print(omega,dm[0],(1-np.exp(dm[0]/(kB*T))),omega+dm[0]+1j*eta)
+            #        raise
+            
+            
             #print((1-np.exp(dm[0]/(kB*T))),dm[0])
             #L+=1j * (1-np.exp(beta*dm[0])) / (omega+dm[0]+1j*eta)
             #print(dm[0])
@@ -1925,24 +1875,294 @@ def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_lambda,n_alpha,w_min,w_max,n
                     Gw=Gf(mesh=w_mesh, data=L_omega[:,orb_1,orb_2,orb_3,orb_4])
                     L2w[orb_1,orb_2,orb_3,orb_4]<<Gw
         
-    return L2w #omegas,L_omega, den_mats
+    return L2w,L_omega, den_mats
         
+#*************************************************************************************
+
+#*************************************************************************************
+# Electron-hole correlation function
+def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_states,w_min,w_max,n_w,eta=0.01):
+
+    '''
+    Computes retarded electron-hole correlation function:
+
+    \chi_{abcd}(\omega) = \frac{1}{Z} \sum_{m,n} \frac{e^{-\beta E_n} - e^{-\beta E_m}}{\omega + E_n - E_m + i\eta} \, \langle n | c_a^\dagger c_b | m \rangle \langle m | c_c^\dagger c_d | n \rangle   
+
+    
+    Input:
+    T: Temperature in K
+    ad: atom diag object
+    spin_names: List of spins
+    orb_names: Orbital names  
+    eigensys: Formatted solution to atom diag
+    n_lambda: "Unoocupied states"
+    n_alpha: "Occupied states," need to replace with Fermi weights
+    w_min: Real frequency mesh minimum
+    w_max: Real frequency mesh max
+    n_w: Real frequency mesh number of points
+    eta: imaginary part for broadening
+    
+    
+    Output:
+    L2w: Retarded electron-hole correlation function as a triqs GF object
+    
+    '''
+    
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+    omegas=np.linspace(w_min,w_max,n_w)
+
+    # Set up Greens function object:
+    w_mesh = MeshReFreq(window=(w_min,w_max), n_w=n_w)
+    L2w= Gf(mesh=w_mesh, target_shape=[n_spin*n_orb,n_spin*n_orb,n_spin*n_orb,n_spin*n_orb])
+
+    kB=8.61733262e-5 # eV/K
+    beta=1/(kB*T)
+    
+    den_mats=[]
+    for alpha in range(min(n_states,len(eigensys))):
+        
+        for lam in range(min(n_states,len(eigensys))):
+            
+            if alpha==lam: continue
+
+            # Convert from states in energy order to those in Hilbert space
+            n_eig_a=int(eigensys[alpha][3])
+            n_eig_l=int(eigensys[lam][3])
+        
+            # Get desired states in eigenvector basis
+            state_eig_a = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_a[int(n_eig_a)]=1.0
+            state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_l[int(n_eig_l)]=1.0
+        
+            # Construct density matrix
+            den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+            for s1 in range(0,n_spin):
+                for s2 in range(0,n_spin):
+                    for ii in range(0,n_orb):
+                        for jj in range(0,n_orb):
+                        
+                            den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
+
+                            xx=ii+s1*n_orb
+                            yy=jj+s2*n_orb
+                        
+                            den_mat[xx,yy]=np.dot(state_eig_a,act(den_op,state_eig_l,ad))
+
+            #den_mat=np.eye(n_spin*n_orb)
+            den_mats.append([eigensys[lam][1],eigensys[alpha][1],den_mat,np.einsum('ij,kl->ijkl',den_mat,np.conjugate(den_mat.T))])
+            
+    L_omega=[]
+    for omega in omegas:
+        L=0
+        for dm in den_mats:
+            L+=1j * (np.exp(-beta*dm[0])-np.exp(-beta*dm[1]))*dm[3] / (omega+1j*eta+dm[0]-dm[1])
+            #L+=1j * dm[2] / (omega+dm[0]+1j*eta)
+
+            # TEST
+            #for el in np.ndarray.flatten(1j * (1-np.exp(dm[0]/(kB*T)))*dm[2] / (omega+dm[0]+1j*eta)):
+            #    if not el==el:
+            #        print('NAN!')
+            #        print(omega,dm[0],(1-np.exp(dm[0]/(kB*T))),omega+dm[0]+1j*eta)
+            #        raise
+            
+            
+            #print((1-np.exp(dm[0]/(kB*T))),dm[0])
+            #L+=1j * (1-np.exp(beta*dm[0])) / (omega+dm[0]+1j*eta)
+            #print(dm[0])
+        L_omega.append(L)
+
+
+    L_omega=np.stack(L_omega)
+        
+    for orb_1 in range(n_orb*n_spin):
+        for orb_2 in range(n_orb*n_spin):
+            for orb_3 in range(n_orb*n_spin):
+                for orb_4 in range(n_orb*n_spin):
+                    Gw=Gf(mesh=w_mesh, data=L_omega[:,orb_1,orb_2,orb_3,orb_4])
+                    L2w[orb_1,orb_2,orb_3,orb_4]<<Gw
+        
+    return L2w,L_omega, den_mats
+        
+#*************************************************************************************
+
+#*************************************************************************************
+# Get DM between many-body states
+def get_dm_between_states(ad,spin_names,orb_names,eigensys,l_state,r_state):
+
+    n_orb=len(orb_names)
+    n_spin=len(spin_names)
+
+    # Setup the particle number operator
+    N = Operator() # Number of particles
+    for s in spin_names:
+        for o in orb_names:
+            N += n(s,o)
+    
+    # Convert from states in energy order to those in Hilbert space
+    n_eig_l=int(eigensys[l_state][3])
+    n_eig_r=int(eigensys[r_state][3])
+        
+    # Get particle number
+    N_l=get_exp_val(ad,n_eig_l,N)
+    N_r=get_exp_val(ad,n_eig_r,N)
+
+    # Get desired states in eigenvector basis
+    state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
+    state_eig_l[int(n_eig_l)]=1.0
+    state_eig_r = np.zeros((int(ad.full_hilbert_space_dim)))
+    state_eig_r[int(n_eig_r)]=1.0
+        
+    # Construct density matrix
+    den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+    for s1 in range(0,n_spin):
+        for s2 in range(0,n_spin):
+            for ii in range(0,n_orb):
+                for jj in range(0,n_orb):
+                        
+                    den_op=c_dag(spin_names[s1],orb_names[ii]) * c(spin_names[s2],orb_names[jj])
+                    
+                    xx=ii+s1*n_orb
+                    yy=jj+s2*n_orb
+                        
+                    den_mat[xx,yy]=np.dot(state_eig_l,act(den_op,state_eig_r,ad))
+
+    return eigensys[l_state][1],eigensys[r_state][1],N_l,N_r,den_mat
+
+    
 #*************************************************************************************
 
 #*************************************************************************************
 # Density-density susceptibility
-def get_chi_den(L_omega,n_orb,n_spin,omegas):
-        
-    chis=[]
-    for iomega,_ in enumerate(omegas):
-        chi=np.zeros([n_orb*n_spin,n_orb*n_spin],dtype=complex)
-        for orb_1 in range(n_orb*n_spin):
-            for orb_2 in range(n_orb*n_spin):
-                chi[orb_1,orb_2]=L_omega[iomega][orb_1,orb_2,orb_2,orb_1]
+def get_chi_den(L2w):
 
-        chis.append(chi)
+    w_mesh=L2w.mesh
+    chi=Gf(mesh=w_mesh, target_shape=L2w.target_shape[0:2])
+    n_orb_n_spin=L2w.target_shape[0]
+    
+    for orb_1 in range(n_orb_n_spin):
+        for orb_2 in range(n_orb_n_spin):
+            chi[orb_1,orb_2] << L2w[orb_1,orb_2,orb_2,orb_1]
+
+    chi_tot=Gf(mesh=w_mesh, target_shape=())
+    chi_tot << 0
+    
+    for orb1 in range(n_orb_n_spin):
+        for orb2 in range(n_orb_n_spin):
+            chi_tot+=chi[orb1,orb2]
             
-    return chis
+    return chi,chi_tot
+
+#*************************************************************************************
+# Get the bare bubble suscpetibility
+def get_chi_bubble_den(beta,G_iw,n_iw,spin_names,n_orb):
+
+    n_spin=len(spin_names)    
+    iw_mesh = MeshImFreq(beta,'Fermion',n_iw)
+    GGiw=Gf(mesh=iw_mesh, target_shape=[n_spin*n_orb,n_spin*n_orb,n_spin*n_orb,n_spin*n_orb])
+    GGiw << 0
+
+    for isp,sp in enumerate(spin_names):
+        for orb_1 in range(n_orb):
+            for orb_2 in range(n_orb):
+                for orb_3 in range(n_orb):
+                    for orb_4 in range(n_orb):
+                        x,data1=G_iw[sp][orb_4,orb_1].x_data_view()
+                        #x,data1=G_w[sp][orb_1,orb_2].x_data_view()
+                        #x1 = np.array([w.value for w in x])
+                        _,data2=G_iw[sp][orb_2,orb_3].x_data_view()
+                        #_,data2=G_w[sp][orb_4,orb_3].x_data_view()
+                
+                    GGiw1s=[]
+                    for iw1,w1 in enumerate(x):
+                        GGiw1=0
+                        for iw2,w2 in enumerate(x):
+                            try:
+                                GGiw1 += -data1[iw2]*data2[iw2+iw1]/beta
+                            except IndexError:
+                                break
+                        GGiw1s.append(GGiw1)
+    
+                    _GGiw=Gf(mesh=iw_mesh, data=np.array(GGiw1s))
+    
+                    GGiw[isp*n_orb+orb_1,isp*n_orb+orb_2,isp*n_orb+orb_3,isp*n_orb+orb_4]<< _GGiw
+            
+    return GGiw
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Get the one-particle Green's function, THIS IS TOO SLOW TO BE USEFUL
+def get_Gw(T,ad,eigensys,mu,w_min,w_max,n_w,spin_names,orb_names,n_states,eta=0.01):
+
+    w_mesh=MeshReFreq(window=(w_min,w_max), n_w=n_w)
+    omegas=np.linspace(w_min,w_max,n_w)
+    n_spin=len(spin_names)
+    n_orb=len(orb_names)
+    Gw=Gf(mesh=w_mesh, target_shape=[n_spin*n_orb,n_spin*n_orb])
+
+    kB=8.61733262e-5 # eV/K
+    beta=1/(kB*T)
+
+    # Construct Dyson amplitudes
+    den_mats=[]
+    Z=0
+    for alpha in range(min(n_states,len(eigensys))):
+
+        # Accumulate partition function
+        Z += np.exp(-beta*eigensys[alpha][1])
+        
+        for lam in range(min(n_states,len(eigensys))):
+            
+            if alpha==lam: continue
+
+            # Convert from states in energy order to those in Hilbert space
+            n_eig_a=int(eigensys[alpha][3])
+            n_eig_l=int(eigensys[lam][3])
+        
+            # Get desired states in eigenvector basis
+            state_eig_a = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_a[int(n_eig_a)]=1.0
+            state_eig_l = np.zeros((int(ad.full_hilbert_space_dim)))
+            state_eig_l[int(n_eig_l)]=1.0
+        
+            # Construct dyson amplitude
+            den_mat=np.zeros((n_spin*n_orb,n_spin*n_orb),dtype='complex128')
+            for s1 in range(0,n_spin):
+                for s2 in range(0,n_spin):
+                    for ii in range(0,n_orb):
+                        for jj in range(0,n_orb):
+    
+                            xx=ii+s1*n_orb
+                            yy=jj+s2*n_orb
+                        
+                            den_mat[xx,yy]=np.dot(state_eig_a,act(c_dag(spin_names[s1],orb_names[ii]),state_eig_l,ad))* \
+                                np.dot(state_eig_l,act(c(spin_names[s2],orb_names[jj]),state_eig_a,ad))
+
+            den_mats.append([eigensys[lam][1],eigensys[alpha][1],den_mat])
+    
+    G_omega=[]
+    for omega in omegas:
+        G=0
+        for dm in den_mats:
+            #G+= da[2] / (omega+da[0]+1j*eta*np.sign(da[0]-mu))
+            G+=(1/Z)*(np.exp(-beta*dm[0])+np.exp(-beta*dm[1]))*dm[2]/(omega+1j*eta+dm[0]-dm[1])
+            #G+=dm[2]/(omega+1j*eta+dm[0]-dm[1])
+        G_omega.append(G)
+
+
+    G_omega=np.stack(G_omega)
+        
+    for orb_1 in range(n_orb*n_spin):
+        for orb_2 in range(n_orb*n_spin):
+            _Gw=Gf(mesh=w_mesh, data=G_omega[:,orb_1,orb_2])
+            Gw[orb_1,orb_2]<<_Gw
+
+
+    return Gw,den_mats,G_omega
+            
+                         
 
     
-
+    

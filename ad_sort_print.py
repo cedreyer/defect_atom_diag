@@ -95,12 +95,7 @@ def get_eng_degen_eigensys(ad,eigensys,out_label,prec=3,verbose=True):
     energies = np.round(energies,prec)
 
     unique_energies, counts = np.unique(energies, return_counts=True)
-
-    # Just print out first 30
-    if len(unique_energies) > 30:
-        n_print=30
-    else:
-        n_print=len(unique_energies)
+    n_print=len(unique_energies)
         
     if verbose:
         f_eng= open(out_label+"energy_deg.dat","w+")
@@ -265,7 +260,7 @@ def print_mb_wfs(ad,wf_files,n_mbwfs,spin_names,orb_names,fops,eigensys,out_labe
 
 #*************************************************************************************
 # Print out information about the states
-def sort_states(spin_names,orb_names,ad,n_print,out_label,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,ml_order=[],verbose=True):
+def sort_states(spin_names,orb_names,ad,n_print,out_label,skip_diff_N=True,prt_mrchar=False,prt_state=True,prt_dm=True,target_mu=5,prt_ad=False,ml_order=[],verbose=True):
     '''
     Sort eigenstates and write them in fock basis
     
@@ -309,7 +304,7 @@ def sort_states(spin_names,orb_names,ad,n_print,out_label,prt_mrchar=False,prt_s
 
             
             # Test to make sure particle number is the target_mu
-            if sum(map(int,str(state))) != target_mu: 
+            if skip_diff_N and sum(map(int,str(state))) != target_mu: 
                 skip_sub=True                
                 break
                 
