@@ -301,7 +301,6 @@ def sort_states(spin_names,orb_names,ad,n_print,out_label,skip_diff_N=True,prt_m
         subspace_fock_state=[]
         for fs in ad.fock_states[sub]:
             state =int(bin(int(fs))[2:])
-
             
             # Test to make sure particle number is the target_mu
             if skip_diff_N and sum(map(int,str(state))) != target_mu: 
@@ -350,16 +349,18 @@ def sort_states(spin_names,orb_names,ad,n_print,out_label,skip_diff_N=True,prt_m
         # Only get spin info for states of interest
         spin=get_exp_val(ad,eigensys[ii][2],S2)
         ms=get_exp_val(ad,eigensys[ii][2],Sz)
+        N=get_N(ad,eigensys[ii][2],spin_names,orb_names)
 
         # Restore previous order
         eigensys[ii]=[eigensys[ii][0],eigensys[ii][1],spin.real,eigensys[ii][2],ms.real]
         
         # Write out info
-        f_state.write('%10s %10s %10s %10s %10s %10s %10s %10s' % \
+        f_state.write('%10s %10s %10s %10s %10s %10s %10s %10s %10s %10s' % \
                       ("Energy:", np.round(float(eigensys[ii][1]),6), \
                        "HS eig num:",eigensys[ii][3],\
                        "s(s+1):", np.round(float(eigensys[ii][2]),4), \
-                       "ms:",np.round(float(eigensys[ii][4]),3)))
+                       "ms:",np.round(float(eigensys[ii][4]),3), \
+                       'N:',np.round(N.real,2)))
         
         # Multireference character
         if prt_mrchar: # Character of mb state

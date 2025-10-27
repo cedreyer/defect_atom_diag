@@ -82,6 +82,32 @@ def get_exp_val(ad,state,operator):
     return exp_val
 
 #*************************************************************************************
+# Get expectation value of an operator for ONE states. Should be used in many of the operations below!!!
+def get_N(ad,state,spin_names,orb_names):
+    '''
+    Get expectation value of electron number for ONE state. 
+
+    Inputs: 
+    ad: Solution to atomic problem
+    state: Index of the state (in energy ordering)
+    spin_names: List of spins
+    orb_names: Orbital names    
+
+    Outputs:
+    Expectation value of N
+
+    '''
+
+    # Setup the particle number operator
+    N = Operator() # Number of particles
+    for s in spin_names:
+        for o in orb_names:
+            N += n(s,o)
+
+        
+    return get_exp_val(ad,state,N)
+
+#*************************************************************************************
 # Get the one body density matricies
 def get_den_mats(ad,spin_names,orb_names,fops,eigensys,n_mbwfs=[0,10],verbose=False):
     '''
@@ -1920,7 +1946,11 @@ def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_states,w_min,w_max,n_w,eta=0
     beta=1/(kB*T)
     
     den_mats=[]
+    Z=0.0
     for alpha in range(min(n_states,len(eigensys))):
+
+        # Accumulate partition function
+        Z += np.exp(-beta*eigensys[alpha][1])
         
         for lam in range(min(n_states,len(eigensys))):
             
@@ -1957,7 +1987,7 @@ def get_el_h_L(T,ad,spin_names,orb_names,eigensys,n_states,w_min,w_max,n_w,eta=0
     for omega in omegas:
         L=0
         for dm in den_mats:
-            L+=1j * (np.exp(-beta*dm[0])-np.exp(-beta*dm[1]))*dm[3] / (omega+1j*eta+dm[0]-dm[1])
+            L+=(1/Z)*1j * (np.exp(-beta*dm[0])-np.exp(-beta*dm[1]))*dm[3] / (omega+1j*eta+dm[0]-dm[1])
             #L+=1j * dm[2] / (omega+dm[0]+1j*eta)
 
             # TEST

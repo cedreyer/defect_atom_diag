@@ -96,7 +96,7 @@ def solve_ad(H,spin_names,orb_names,fops,mu_in,verbose=False):
             
             # Split the Hilbert space automatically
             try:
-                ad = AtomDiagComplex(H, fops,n_min=0, n_max=int(target_occ)) # No need to go above n_max
+                ad = AtomDiagComplex(H, fops)#,n_min=0, n_max=int(target_occ)) # No need to go above n_max
             except:
                 ad = AtomDiagComplex(H, fops) # No const occ for backwards compatability
                 
