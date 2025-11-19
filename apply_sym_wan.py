@@ -207,7 +207,7 @@ def load_xsf_files(wf_file_names,path='./',flip_xz=True,convert_lat=True,npad=0,
             center_grid=n_meshes[0]*center+npad
 
             # CD: IN LATEST EXAMPLE, SEEMED TO NEED TO CHANGE THE SIGN OF THIS TO POSITIVE...??? 
-            offset=(center_grid-center_grid.dot(np.linalg.inv(lat_vec_norm).T)).dot(lat_vec_norm.T)
+            offset=-(center_grid-center_grid.dot(np.linalg.inv(lat_vec_norm).T)).dot(lat_vec_norm.T)
             
             # Apply symmetry element
             wann1=sni.affine_transform(wann1,np.linalg.inv(lat_vec_norm).T,offset=offset)
