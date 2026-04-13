@@ -82,6 +82,33 @@ def get_exp_val(ad,state,operator):
     return exp_val
 
 #*************************************************************************************
+# Get matrix elements of an operator for TWO states. Should be used in many of the operations below!!!
+def get_matrix_el(ad,state1,state2,operator):
+    '''
+    Get <state1|operator|state2>
+
+    Inputs: 
+    ad: Solution to atomic problem
+    state: Index of the state (in energy ordering)
+    operator: Operator to get exp value of
+
+    Outputs:
+    exp_val: Expectation value
+
+    '''
+        
+    state_eig1 = np.zeros((int(ad.full_hilbert_space_dim)))
+    state_eig1[int(state1)]=1.0        
+
+    state_eig2 = np.zeros((int(ad.full_hilbert_space_dim)))
+    state_eig2[int(state2)]=1.0        
+    
+    exp_val=np.dot(np.conjugate(state_eig1.T),act(operator,state_eig2,ad))
+
+        
+    return exp_val
+
+#*************************************************************************************
 # Get expectation value of an operator for ONE states. Should be used in many of the operations below!!!
 def get_N(ad,state,spin_names,orb_names):
     '''

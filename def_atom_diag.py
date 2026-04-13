@@ -1347,6 +1347,9 @@ def read_tij(wan_file,cmplx,spin_names,orb_names):
                 line_rwts = 2+int(np.ceil(nrpts/15.0))
 
             elif count > line_rwts:
+
+                #TEST
+                #print(line)
                 # Only extract the intrasite elements
                 if int(line.split()[0])==0 and	int(line.split()[1])==0 and int(line.split()[2])==0:
 
