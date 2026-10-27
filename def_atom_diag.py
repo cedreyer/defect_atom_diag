@@ -1083,7 +1083,7 @@ def avg_U(n_orb,uijkl,verbose=False,U_elem=[True,True,True],triqs_U=False):
 
     # Now construct a full uijkl matrix with averaged values
     if not triqs_U:
-        uijkl_avg=np.zeros((n_orb,n_orb,n_orb,n_orb))
+        uijkl_avg=np.zeros((n_orb,n_orb,n_orb,n_orb),dtype='complex')
         for ii in range(0,n_orb):
             for jj in range(0,n_orb):
                 for kk in range(0,n_orb):
