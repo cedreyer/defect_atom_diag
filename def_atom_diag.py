@@ -261,6 +261,8 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
             uijkl[iu]=uijkl_iu
             
 
+    elif int_opt == 9:
+        uij,jij,uijkl=make_two_ind_U_den_den_sp(n_orb,uijkl,verbose=False)
 
     #Print U matrix
     #if verbose:
@@ -959,6 +961,79 @@ def make_two_ind_U(n_orb,uijkl,verbose=False,U_elem=[True,True]):
                         print(ii, jj, kk, ll, uijkl_avg[ii, jj, kk, ll])
 
     return uij, jij, uijkl_avg
+#*************************************************************************************
+
+#*************************************************************************************
+# Average U values, allowing for potentially spin-polarized U
+def make_two_ind_U_den_den_sp(n_orb,uijkls,verbose=False,U_elem=[True,True],spin_pol_avg=False):
+
+    '''
+
+    '''
+    
+    uijs=[]    
+    jijs=[]
+    uijkls_avg=[]
+    for uijkl in uijkls:
+        uij, jij, uijkl_avg=make_two_ind_U_den_den(n_orb,uijkl,verbose=verbose,U_elem=U_elem)
+        uijs.append(Uavg)
+        jijs.append(Uprimes)
+        uijkls_avg.append(uijkl_avg)
+
+    if spin_pol_avg:
+        uijs=np.average(np.array(uijs))
+        jijs=np.average(np.array(jijs))
+        uijkls_avg=np.average(np.array(uijkls_avg))
+
+    return uijs, jijs, uijkls_avg
+
+#*************************************************************************************
+
+#*************************************************************************************
+# Only keep diagonal and density-density
+def make_two_ind_U_den_den(n_orb,uijkl,verbose=False,U_elem=[True,True]):
+    '''
+    Reduce full interaction to two index.
+
+    Inputs:
+    n_orb: Number of orbitals
+    uijkl: Full interaction tensor
+    verbose: Write out more to the terminal
+    U_elem: Whether to include U and J
+
+    Outputs:
+    uij: Two index direct interaction
+    uijkl_avg: Interaction with just uij and jij elements
+    
+    '''
+    
+    uij = np.zeros((n_orb, n_orb))
+    jij = np.zeros((n_orb, n_orb))
+    uijkl_avg = uijkl
+    # Get the average values, indicies should be flipped already!!!
+    for ii in range(0, n_orb):
+        for jj in range(0, n_orb):
+            for kk in range(0, n_orb):
+                for ll in range(0, n_orb):
+                    if ii == kk and jj == ll and U_elem[0]:  # Density density: Uii,ii and Uijij
+                        if verbose:
+                            print(ii, jj, kk, ll, uijkl[ii, jj, kk, ll], "Added to uij")
+                        uij[ii, jj] = uijkl[ii, jj, kk, ll]
+                    
+                    else:
+                        uijkl_avg[ii, jj, kk, ll] = 0.0
+
+
+    # For testing
+    if verbose:
+        print(" ")
+        for ii in range(0, n_orb):
+            for jj in range(0, n_orb):
+                for kk in range(0, n_orb):
+                    for ll in range(0, n_orb):
+                        print(ii, jj, kk, ll, uijkl_avg[ii, jj, kk, ll])
+
+    return uij, uijkl_avg
 #*************************************************************************************
 
 #*************************************************************************************
