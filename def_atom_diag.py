@@ -262,7 +262,7 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
             
 
     elif int_opt == 9:
-        uij,jij,uijkl=make_two_ind_U_den_den_sp(n_orb,uijkl,verbose=False)
+        uij,uijkl=make_two_ind_U_den_den_sp(n_orb,uijkl,verbose=False)
 
     #Print U matrix
     #if verbose:
@@ -892,8 +892,8 @@ def make_two_ind_U_sp(n_orb,uijkls,verbose=False,U_elem=[True,True],spin_pol_avg
     uijkls_avg=[]
     for uijkl in uijkls:
         uij, jij, uijkl_avg=make_two_ind_U(n_orb,uijkl,verbose=verbose,U_elem=U_elem)
-        uijs.append(Uavg)
-        jijs.append(Uprimes)
+        uijs.append(uij)
+        jijs.append(jij)
         uijkls_avg.append(uijkl_avg)
 
     if spin_pol_avg:
@@ -975,17 +975,15 @@ def make_two_ind_U_den_den_sp(n_orb,uijkls,verbose=False,U_elem=[True,True],spin
     jijs=[]
     uijkls_avg=[]
     for uijkl in uijkls:
-        uij, jij, uijkl_avg=make_two_ind_U_den_den(n_orb,uijkl,verbose=verbose,U_elem=U_elem)
-        uijs.append(Uavg)
-        jijs.append(Uprimes)
+        uij,uijkl_avg=make_two_ind_U_den_den(n_orb,uijkl,verbose=verbose,U_elem=U_elem)
+        uijs.append(uij)
         uijkls_avg.append(uijkl_avg)
 
     if spin_pol_avg:
         uijs=np.average(np.array(uijs))
-        jijs=np.average(np.array(jijs))
         uijkls_avg=np.average(np.array(uijkls_avg))
 
-    return uijs, jijs, uijkls_avg
+    return uijs, uijkls_avg
 
 #*************************************************************************************
 
