@@ -265,7 +265,7 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
         uij,uijkl=make_two_ind_U_den_den_sp(n_orb,uijkl,verbose=False)
 
 
-    if int_opt==0:
+    elif int_opt==0:
         if verbose: print("Full Uijkl")
         
     else:
