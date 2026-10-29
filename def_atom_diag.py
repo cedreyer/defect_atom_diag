@@ -1005,8 +1005,7 @@ def make_two_ind_U_den_den(n_orb,uijkl,verbose=False,U_elem=[True,True]):
     
     '''
     
-    uij = np.zeros((n_orb, n_orb))
-    jij = np.zeros((n_orb, n_orb))
+    uij = np.zeros((n_orb, n_orb),dtype='complex')
     uijkl_avg = uijkl
     # Get the average values, indicies should be flipped already!!!
     for ii in range(0, n_orb):
