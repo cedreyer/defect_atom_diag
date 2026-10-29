@@ -264,6 +264,10 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
     elif int_opt == 9:
         uij,uijkl=make_two_ind_U_den_den_sp(n_orb,uijkl,verbose=False)
 
+
+    else:
+        raise ValueError("Invalid int_opt")
+    
     #Print U matrix
     #if verbose:
     #    for ii in range(0,n_orb):
@@ -276,6 +280,8 @@ def add_interaction(H,n_sites,spin_names,orb_names,fops,int_in,verbose=False):
 
 
     # SPIN POL UP TO HERE
+
+
     
     # Check the symmetry of the U matrix
     if int_in['sym']:
